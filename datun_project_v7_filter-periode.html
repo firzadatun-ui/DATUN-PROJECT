@@ -1,0 +1,3380 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DATUN Project v3 — Tracking Pengajuan</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --ink:#14213D;
+    --ink-2:#1B2A41;
+    --ink-soft:#2B3B57;
+    --paper:#EEF1F5;
+    --paper-2:#FFFFFF;
+    --brass:#C9A24B;
+    --brass-dark:#A6832E;
+    --line:#D8DEE8;
+    --text-dim:#5B6B85;
+
+    --c-cekdata:#3E6DBF;
+    --c-survey:#4C8577;
+    --c-komiteca:#7A5FB5;
+    --c-komitekacab:#B5637A;
+    --c-ttd:#B57F3E;
+    --c-bpkb:#5B7A3E;
+    --c-pencairan:#3E9E8C;
+    --c-motor:#3E7DBF;
+    --c-mobil:#B5763E;
+
+    --c-proses:#3E6DBF;
+    --c-batal:#7A7F8C;
+    --c-pending:#C99A3E;
+    --c-rejectslik:#B5453E;
+    --c-rejectnonslik:#B56A3E;
+    --c-approved:#3E9E5A;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+  }
+  ::selection{background:var(--brass); color:#fff;}
+
+  h1,h2,h3,.display{
+    font-family:'Fraunces',serif;
+    font-optical-sizing:auto;
+    letter-spacing:-0.01em;
+  }
+
+  .mono{font-family:'IBM Plex Mono',monospace;}
+
+  a{color:inherit;}
+
+  /* ---------- App shell ---------- */
+  #app{display:flex; min-height:100vh; position:relative;}
+
+  .sidebar{
+    width:220px;
+    min-width:64px;
+    flex-shrink:0;
+    background:var(--ink);
+    color:#DCE3EF;
+    display:flex;
+    flex-direction:column;
+    padding:24px 16px;
+    position:sticky;
+    top:0;
+    height:100vh;
+    overflow:hidden;
+    z-index:40;
+  }
+  .sidebar.resizing{transition:none !important;}
+  .sidebar:not(.resizing){transition:width .18s ease, padding .18s ease;}
+  .sidebar.mini{padding:24px 10px; align-items:center;}
+  .sidebar.mini .brand-text, .sidebar.mini .lbl-text, .sidebar.mini .sidebar-foot{display:none;}
+  .sidebar.mini .nav-btn{justify-content:center; padding:11px;}
+  .sidebar.mini .brand{text-align:center;}
+  .sidebar.mini .nav{align-items:center; width:100%;}
+
+  /* Mobile Backdrop */
+  .mobile-backdrop{
+    display:none; position:fixed; inset:0; background:rgba(20,33,61,.5);
+    backdrop-filter:blur(2px); z-index:35;
+  }
+
+  .resizer{
+    width:6px;
+    flex-shrink:0;
+    cursor:col-resize;
+    background:transparent;
+    position:relative;
+    z-index:10;
+  }
+  .resizer::after{
+    content:'';
+    position:absolute; top:0; bottom:0; left:2px; width:2px;
+    background:var(--line);
+    transition:background .15s;
+  }
+  .resizer:hover::after, .resizer.active::after{background:var(--brass);}
+  .resizer-handle{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:18px; height:38px; border-radius:5px;
+    background:var(--paper-2); border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center;
+    font-size:10px; color:var(--text-dim);
+    opacity:0; transition:opacity .15s;
+  }
+  .resizer:hover .resizer-handle{opacity:1;}
+  .brand-icon{display:none; font-family:'Fraunces',serif; font-weight:700; font-size:16px; color:var(--brass);}
+  .sidebar.mini .brand-icon{display:block;}
+  .brand{
+    font-family:'Fraunces',serif;
+    font-size:20px;
+    font-weight:600;
+    color:#fff;
+    margin-bottom:4px;
+    line-height:1.2;
+  }
+  .brand small{
+    display:block;
+    font-family:'Inter',sans-serif;
+    font-weight:400;
+    font-size:11px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--brass);
+    margin-top:6px;
+  }
+  .nav{margin-top:32px; display:flex; flex-direction:column; gap:4px; width:100%;}
+  .nav-btn{
+    display:flex; align-items:center; gap:10px; width:100%;
+    background:transparent; border:none; color:#B9C4D6;
+    padding:11px 12px; border-radius:6px; font-size:14px; font-weight:500;
+    cursor:pointer; text-align:left; font-family:'Inter',sans-serif;
+    transition:background .15s, color .15s;
+  }
+  .nav-btn:hover{background:var(--ink-soft); color:#fff;}
+  .nav-btn.active{background:var(--brass); color:var(--ink);}
+  .nav-btn .ic{width:16px; text-align:center; opacity:.85;}
+
+  .sidebar-foot{
+    margin-top:auto;
+    padding-top:20px;
+    border-top:1px solid rgba(255,255,255,.1);
+    font-size:11px;
+    color:#7C8AA3;
+    line-height:1.5;
+  }
+
+  .main{flex:1; min-width:0; padding:28px 32px 60px;}
+
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:16px; margin-bottom:24px; flex-wrap:wrap;
+  }
+  .topbar-left{display:flex; align-items:center; gap:14px;}
+  .btn-mobile-menu{
+    display:none; background:var(--ink); color:#fff; border:none;
+    padding:8px 12px; border-radius:6px; font-size:16px; cursor:pointer;
+  }
+  .topbar h1{font-size:26px; margin:0; font-weight:600;}
+  .topbar .sub{color:var(--text-dim); font-size:13px; margin-top:2px;}
+
+  .status-badge-net{
+    font-size:11.5px; padding:5px 10px; border-radius:12px; font-weight:600;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .status-badge-net.online{background:#E6F4EA; color:#137333;}
+  .status-badge-net.offline{background:#FEF7E0; color:#B06000;}
+  .status-badge-net.error{background:#FCE8E6; color:#C5221F;}
+
+  .btn{
+    font-family:'Inter',sans-serif; font-weight:600; font-size:13px;
+    border-radius:6px; padding:10px 16px; cursor:pointer; border:1px solid transparent;
+    display:inline-flex; align-items:center; gap:8px; transition:all .15s;
+  }
+  .btn-primary{background:var(--ink); color:#fff;}
+  .btn-primary:hover{background:var(--ink-soft);}
+  .btn-brass{background:var(--brass); color:var(--ink);}
+  .btn-brass:hover{background:var(--brass-dark); color:#fff;}
+  .btn-ghost{background:transparent; color:var(--ink); border-color:var(--line);}
+  .btn-ghost:hover{background:#fff; border-color:var(--ink);}
+  .btn-danger{background:#fff; color:#B5453E; border-color:#E9C7C4;}
+  .btn-danger:hover{background:#B5453E; color:#fff;}
+  .btn-sm{padding:6px 10px; font-size:12px; border-radius:5px;}
+  .btn:disabled{opacity:.5; cursor:not-allowed;}
+
+  /* ---------- Cards ---------- */
+  .filter-flag{
+    display:inline-flex; align-items:center; gap:12px;
+    background:#FBF3E1; border:1px solid #E9D8AE; color:var(--brass-dark);
+    font-size:12.5px; font-weight:600; padding:8px 14px; border-radius:7px; margin-top:14px;
+  }
+  .filter-flag .ai-mini-btn{background:transparent;}
+
+  .section-label{
+    font-size:11px; font-weight:700; letter-spacing:.09em; text-transform:uppercase;
+    color:var(--text-dim); margin:28px 0 12px;
+  }
+  .cards-grid{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr));
+    gap:10px;
+  }
+  .stat-card{
+    background:var(--paper-2);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:14px 14px 12px;
+    position:relative;
+    overflow:hidden;
+  }
+  .stat-card::before{
+    content:'';
+    position:absolute; left:0; top:0; bottom:0; width:4px;
+    background:var(--accent, var(--ink));
+  }
+  .stat-card .num{
+    font-family:'IBM Plex Mono',monospace; font-size:26px; font-weight:600; line-height:1;
+    color:var(--ink);
+  }
+  .stat-card .lbl{
+    font-size:12px; color:var(--text-dim); margin-top:6px; font-weight:500;
+  }
+  .stat-card.total{
+    background:var(--ink); border-color:var(--ink);
+  }
+  .stat-card.total .num, .stat-card.total .lbl{color:#fff;}
+  .stat-card.total .lbl{color:#B9C4D6;}
+  .stat-card.total .sub-num{
+    font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--brass); margin-top:4px;
+  }
+
+  /* ---------- Stamp badges ---------- */
+  .stamp{
+    display:inline-flex; align-items:center; gap:5px;
+    font-family:'Fraunces',serif; font-weight:600; font-size:11px;
+    letter-spacing:.03em; text-transform:uppercase;
+    padding:4px 9px; border-radius:3px;
+    border:1.5px solid currentColor;
+    transform:rotate(-2deg);
+    white-space:nowrap;
+  }
+  .stamp::before{content:'●'; font-size:8px;}
+
+  /* ---------- AI Reminder panel ---------- */
+  .ai-panel{
+    background:linear-gradient(135deg, var(--ink) 0%, var(--ink-2) 100%);
+    border-radius:12px; padding:18px 20px; color:#fff; margin-bottom:8px;
+    border:1px solid var(--ink-soft);
+  }
+  .ai-panel-head{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;}
+  .ai-title{display:flex; align-items:center; gap:10px; font-weight:600; font-size:14px;}
+  .ai-dot{
+    width:9px; height:9px; border-radius:50%; background:var(--brass);
+    box-shadow:0 0 0 0 rgba(201,162,75,.6);
+    animation:pulse 2s infinite;
+  }
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(201,162,75,.55);}
+    70%{box-shadow:0 0 0 8px rgba(201,162,75,0);}
+    100%{box-shadow:0 0 0 0 rgba(201,162,75,0);}
+  }
+  .ai-body{margin-top:12px;}
+  .ai-empty{color:#9FB0CB; font-size:13px; font-style:italic;}
+  .ai-item{
+    background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1);
+    border-radius:8px; padding:12px 14px; margin-bottom:8px;
+  }
+  .ai-item-head{display:flex; justify-content:space-between; gap:10px; align-items:baseline; flex-wrap:wrap;}
+  .ai-item-name{font-weight:600; font-size:13.5px;}
+  .ai-item-time{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--brass);}
+  .ai-item-msg{font-size:13px; color:#DCE3EF; margin-top:6px; line-height:1.5;}
+  .ai-item-actions{margin-top:10px; display:flex; gap:8px;}
+  .ai-mini-btn{
+    font-size:11.5px; font-weight:600; padding:6px 10px; border-radius:5px; cursor:pointer;
+    border:1px solid rgba(255,255,255,.25); background:transparent; color:#fff;
+  }
+  .ai-mini-btn.primary{background:var(--brass); color:var(--ink); border-color:var(--brass);}
+  .ai-mini-btn:hover{opacity:.85;}
+
+  /* ---------- Filters + table ---------- */
+  .toolbar{
+    display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:10px 0 14px;
+  }
+  .toolbar input[type=text], .toolbar select, .toolbar input[type=date]{
+    font-family:'Inter',sans-serif; font-size:13px; padding:9px 11px;
+    border:1px solid var(--line); border-radius:6px; background:#fff; color:var(--ink);
+  }
+  .toolbar input[type=text]{min-width:220px; flex:1;}
+  .toolbar select{min-width:130px;}
+  .toolbar input[type=date]{min-width:140px;}
+
+  .table-wrap{
+    background:#fff; border:1px solid var(--line); border-radius:10px; overflow:auto;
+  }
+  table{border-collapse:collapse; width:100%; font-size:12.5px; min-width:1600px;}
+  thead th{
+    text-align:left; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--text-dim); font-weight:700; padding:11px 12px; border-bottom:2px solid var(--ink);
+    white-space:nowrap; position:sticky; top:0; background:#fff; cursor:pointer; user-select:none;
+  }
+  thead th:hover{color:var(--ink); background:#FAFBFD;}
+  thead th .sort-arrow{display:inline-block; margin-left:4px; opacity:.4;}
+  thead th.active-sort .sort-arrow{opacity:1; color:var(--brass-dark);}
+  tbody td{padding:11px 12px; border-bottom:1px solid var(--line); vertical-align:middle; white-space:nowrap;}
+  tbody tr{transition:background .12s ease;}
+  tbody tr:hover{background:#E4E9F2;}
+  .money{font-family:'IBM Plex Mono',monospace; font-weight:600;}
+  .row-actions{display:flex; gap:6px;}
+  .icon-btn{
+    width:28px; height:28px; border-radius:6px; border:1px solid var(--line); background:#fff;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:13px;
+  }
+  .icon-btn:hover{background:var(--paper);}
+  .icon-btn.danger:hover{background:#FCEDEC; border-color:#E9C7C4;}
+  .empty-row td{text-align:center; padding:40px; color:var(--text-dim); font-style:italic;}
+
+  /* ---------- Loading Spinner ---------- */
+  .spinner{
+    display:inline-block; width:18px; height:18px; border:2px solid rgba(255,255,255,.3);
+    border-radius:50%; border-top-color:#fff; animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* ---------- Form ---------- */
+  .form-wrap{
+    max-width:760px; background:#fff; border:1px solid var(--line); border-radius:12px;
+    padding:32px 36px; margin-top:8px;
+  }
+  .form-wrap h2{margin:0 0 4px; font-size:22px;}
+  .form-wrap .form-sub{color:var(--text-dim); font-size:13px; margin-bottom:26px;}
+  .field{margin-bottom:20px;}
+  .field label{
+    display:block; font-size:12.5px; font-weight:600; margin-bottom:6px; color:var(--ink);
+  }
+  .field .hint{font-size:11.5px; color:var(--text-dim); font-weight:400; margin-left:4px;}
+  .field input[type=text], .field input[type=date], .field select, .field textarea{
+    width:100%; font-family:'Inter',sans-serif; font-size:14px; padding:11px 13px;
+    border:1px solid var(--line); border-radius:7px; background:var(--paper); color:var(--ink);
+  }
+  .field input.mono-input{font-family:'IBM Plex Mono',monospace;}
+  .field input:focus, .field select:focus, .field textarea:focus{
+    outline:none; border-color:var(--brass); background:#fff;
+    box-shadow:0 0 0 3px rgba(201,162,75,.18);
+  }
+  .field-row{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  .form-actions{display:flex; gap:10px; margin-top:8px; padding-top:20px; border-top:1px solid var(--line);}
+  .field-error{color:#B5453E; font-size:11.5px; margin-top:5px; display:none;}
+  .field.invalid input, .field.invalid select, .field.invalid textarea{border-color:#B5453E; background:#FCEEED;}
+  .field.invalid .field-error{display:block;}
+
+  /* ---------- Modal ---------- */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(20,33,61,.55); backdrop-filter:blur(2px);
+    display:none; align-items:flex-start; justify-content:center; padding:40px 20px; z-index:100; overflow:auto;
+  }
+  .modal-overlay.open{display:flex;}
+  .modal{
+    background:#fff; border-radius:12px; width:100%; max-width:640px; max-height:90vh;
+    display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,.3);
+  }
+  .modal-head{
+    display:flex; justify-content:space-between; align-items:center; padding:20px 24px;
+    border-bottom:1px solid var(--line);
+  }
+  .modal-head h3{margin:0; font-size:18px;}
+  .modal-close{background:none; border:none; font-size:20px; cursor:pointer; color:var(--text-dim); line-height:1;}
+  .modal-body{padding:22px 24px; overflow:auto;}
+  .modal-foot{padding:16px 24px; border-top:1px solid var(--line); display:flex; gap:10px; justify-content:flex-end;}
+
+  .detail-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px 18px;}
+  .detail-item .k{font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-dim); font-weight:700;}
+  .detail-item .v{font-size:14.5px; margin-top:3px; color:var(--ink); font-weight:500;}
+  .detail-item.full{grid-column:1/-1;}
+
+  .history-list{margin-top:18px; border-top:1px solid var(--line); padding-top:16px;}
+  .history-list h4{font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-dim); margin:0 0 10px;}
+  .history-item{display:flex; gap:10px; font-size:12.5px; padding:8px 0; border-bottom:1px dashed var(--line);}
+  .history-item:last-child{border-bottom:none;}
+  .history-time{font-family:'IBM Plex Mono',monospace; color:var(--text-dim); flex-shrink:0; width:130px;}
+
+  .toast-wrap{position:fixed; bottom:20px; right:20px; z-index:200; display:flex; flex-direction:column; gap:8px;}
+  .toast{
+    background:var(--ink); color:#fff; padding:12px 18px; border-radius:8px; font-size:13px;
+    box-shadow:0 8px 24px rgba(0,0,0,.25); border-left:4px solid var(--brass);
+    animation:slidein .25s ease;
+  }
+  @keyframes slidein{from{transform:translateX(30px); opacity:0;} to{transform:translateX(0); opacity:1;}}
+
+  @media (max-width: 860px){
+    .btn-mobile-menu{display:block;}
+    .sidebar{position:fixed; left:0; top:0; bottom:0; z-index:50; transform:translateX(-100%); transition:transform .25s ease;}
+    .sidebar.open{transform:translateX(0);}
+    .mobile-backdrop.open{display:block;}
+    .resizer{display:none;}
+    .main{padding:20px 16px 60px;}
+    .field-row{grid-template-columns:1fr;}
+    .detail-grid{grid-template-columns:1fr;}
+    .ai-fab{right:16px !important; bottom:16px !important;}
+    .ai-chat-panel{width:calc(100vw - 32px) !important; right:16px !important; bottom:80px !important; height:70vh !important;}
+    .notif-dropdown{width:calc(100vw - 32px) !important; right:8px !important;}
+  }
+
+  /* =========================================================
+     NOTIFICATION CENTER
+  ========================================================= */
+  .topbar-tools{display:flex; align-items:center; gap:10px;}
+  .notif-wrap{position:relative;}
+  .notif-bell{
+    position:relative; width:38px; height:38px; border-radius:9px;
+    background:#fff; border:1px solid var(--line); cursor:pointer;
+    display:flex; align-items:center; justify-content:center; font-size:16px;
+    color:var(--ink); transition:background .15s;
+  }
+  .notif-bell:hover{background:var(--paper);}
+  .notif-bell .badge{
+    position:absolute; top:-5px; right:-5px; min-width:17px; height:17px; padding:0 4px;
+    background:#B5453E; color:#fff; border-radius:9px; font-size:10px; font-weight:700;
+    display:flex; align-items:center; justify-content:center; line-height:1; border:2px solid var(--paper);
+  }
+  .notif-dropdown{
+    position:absolute; top:46px; right:0; width:360px; max-height:440px; overflow:auto;
+    background:#fff; border:1px solid var(--line); border-radius:12px;
+    box-shadow:0 16px 40px rgba(20,33,61,.18); z-index:150; display:none;
+  }
+  .notif-dropdown.open{display:block;}
+  .notif-head{
+    display:flex; align-items:center; justify-content:space-between; padding:14px 16px;
+    border-bottom:1px solid var(--line); position:sticky; top:0; background:#fff;
+  }
+  .notif-head h4{margin:0; font-size:14px; font-family:'Fraunces',serif;}
+  .notif-head button{background:none; border:none; color:var(--brass-dark); font-size:11.5px; font-weight:600; cursor:pointer;}
+  .notif-list{padding:6px;}
+  .notif-item{
+    display:flex; gap:10px; padding:10px 10px; border-radius:8px; cursor:pointer;
+  }
+  .notif-item:hover{background:var(--paper);}
+  .notif-item.unread{background:#FBF3E1;}
+  .notif-item .ic{font-size:16px; flex-shrink:0; margin-top:1px;}
+  .notif-item .body{flex:1; min-width:0;}
+  .notif-item .msg{font-size:12.5px; color:var(--ink); line-height:1.4;}
+  .notif-item .time{font-size:10.5px; color:var(--text-dim); margin-top:3px; font-family:'IBM Plex Mono',monospace;}
+  .notif-empty{padding:36px 16px; text-align:center; color:var(--text-dim); font-size:12.5px; font-style:italic;}
+  .notif-foot{padding:10px 14px; border-top:1px solid var(--line); text-align:center;}
+  .notif-foot label{font-size:11.5px; color:var(--text-dim); display:flex; align-items:center; gap:7px; justify-content:center; cursor:pointer;}
+
+  /* =========================================================
+     AI AGENT — FLOATING CHAT
+  ========================================================= */
+  .ai-fab{
+    position:fixed; right:32px; bottom:32px; z-index:150;
+    width:58px; height:58px; border-radius:50%;
+    background:linear-gradient(135deg, var(--brass) 0%, var(--brass-dark) 100%);
+    color:var(--ink); border:none; cursor:pointer; font-size:24px;
+    box-shadow:0 10px 30px rgba(166,131,46,.45);
+    display:flex; align-items:center; justify-content:center;
+    transition:transform .15s;
+  }
+  .ai-fab:hover{transform:scale(1.06);}
+  .ai-fab .fab-dot{
+    position:absolute; top:2px; right:2px; width:12px; height:12px; border-radius:50%;
+    background:#3E9E5A; border:2px solid var(--paper);
+  }
+  .ai-chat-panel{
+    position:fixed; right:32px; bottom:104px; width:380px; height:520px; max-height:70vh;
+    background:#fff; border-radius:16px; box-shadow:0 24px 60px rgba(20,33,61,.3);
+    border:1px solid var(--line); z-index:150; display:none;
+    flex-direction:column; overflow:hidden;
+  }
+  .ai-chat-panel.open{display:flex;}
+  .ai-chat-head{
+    background:linear-gradient(135deg, var(--ink) 0%, var(--ink-2) 100%); color:#fff;
+    padding:16px 18px; display:flex; align-items:center; justify-content:space-between;
+  }
+  .ai-chat-head .who{display:flex; align-items:center; gap:10px;}
+  .ai-chat-head .who .ttl{font-family:'Fraunces',serif; font-weight:600; font-size:14.5px;}
+  .ai-chat-head .who .sub{font-size:10.5px; color:#9FB0CB;}
+  .ai-chat-head button{background:rgba(255,255,255,.12); border:none; color:#fff; width:26px; height:26px; border-radius:6px; cursor:pointer;}
+  .ai-chat-body{flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:10px; background:var(--paper);}
+  .ai-msg{max-width:85%; padding:10px 13px; border-radius:12px; font-size:12.8px; line-height:1.5;}
+  .ai-msg.bot{background:#fff; border:1px solid var(--line); align-self:flex-start; border-bottom-left-radius:3px;}
+  .ai-msg.user{background:var(--ink); color:#fff; align-self:flex-end; border-bottom-right-radius:3px;}
+  .ai-msg.typing{display:flex; gap:4px; align-items:center; padding:12px 14px;}
+  .ai-msg.typing span{width:6px; height:6px; border-radius:50%; background:var(--text-dim); animation:typingDot 1s infinite;}
+  .ai-msg.typing span:nth-child(2){animation-delay:.15s;} .ai-msg.typing span:nth-child(3){animation-delay:.3s;}
+  @keyframes typingDot{0%,60%,100%{opacity:.3; transform:translateY(0);} 30%{opacity:1; transform:translateY(-3px);}}
+  .ai-suggest{display:flex; flex-wrap:wrap; gap:6px; padding:0 16px 12px; background:var(--paper);}
+  .ai-suggest button{
+    font-size:11px; padding:6px 10px; border-radius:14px; border:1px solid var(--line);
+    background:#fff; cursor:pointer; color:var(--ink-soft);
+  }
+  .ai-suggest button:hover{border-color:var(--brass);}
+  .ai-chat-foot{padding:12px; border-top:1px solid var(--line); display:flex; gap:8px; background:#fff;}
+  .ai-chat-foot input{
+    flex:1; border:1px solid var(--line); border-radius:20px; padding:10px 15px; font-size:12.8px;
+    font-family:'Inter',sans-serif; background:var(--paper);
+  }
+  .ai-chat-foot input:focus{outline:none; border-color:var(--brass); background:#fff;}
+  .ai-chat-foot button{
+    width:38px; height:38px; border-radius:50%; background:var(--brass); color:var(--ink);
+    border:none; cursor:pointer; font-size:15px; flex-shrink:0;
+  }
+  .ai-chat-foot button:hover{background:var(--brass-dark); color:#fff;}
+  .ai-chip{align-self:flex-start; font-size:10.5px; color:var(--text-dim); padding:2px 4px;}
+
+  /* =========================================================
+     SETTINGS MODAL
+  ========================================================= */
+  .settings-row{display:flex; align-items:center; justify-content:space-between; gap:14px; padding:13px 0; border-bottom:1px dashed var(--line);}
+  .settings-row:last-child{border-bottom:none;}
+  .settings-row .lbl{font-size:13.5px; font-weight:600;}
+  .settings-row .desc{font-size:11.5px; color:var(--text-dim); margin-top:2px; max-width:340px;}
+  .switch{position:relative; width:42px; height:24px; flex-shrink:0;}
+  .switch input{opacity:0; width:0; height:0;}
+  .switch .slider{
+    position:absolute; inset:0; background:var(--line); border-radius:24px; cursor:pointer; transition:.15s;
+  }
+  .switch .slider::before{
+    content:''; position:absolute; width:18px; height:18px; left:3px; top:3px; background:#fff;
+    border-radius:50%; transition:.15s; box-shadow:0 1px 3px rgba(0,0,0,.3);
+  }
+  .switch input:checked + .slider{background:var(--brass);}
+  .switch input:checked + .slider::before{transform:translateX(18px);}
+  .settings-input{width:100%; font-family:'IBM Plex Mono',monospace; font-size:12.5px; padding:9px 11px; border:1px solid var(--line); border-radius:6px; background:var(--paper);}
+  .settings-select{font-family:'Inter',sans-serif; font-size:12.5px; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--paper);}
+
+  /* =========================================================
+     ANALYTICS VIEW
+  ========================================================= */
+  .kpi-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin-bottom:8px;}
+  .kpi-card{background:#fff; border:1px solid var(--line); border-radius:12px; padding:16px 18px; position:relative; overflow:hidden;}
+  .kpi-card .kpi-ic{font-size:18px; margin-bottom:8px;}
+  .kpi-card .kpi-val{font-family:'IBM Plex Mono',monospace; font-size:24px; font-weight:700; color:var(--ink);}
+  .kpi-card .kpi-lbl{font-size:11.5px; color:var(--text-dim); margin-top:4px; font-weight:500;}
+  .kpi-card .kpi-trend{font-size:11px; margin-top:8px; font-weight:600;}
+  .kpi-trend.good{color:#137333;} .kpi-trend.bad{color:#C5221F;} .kpi-trend.neutral{color:var(--text-dim);}
+
+  .panel-box{background:#fff; border:1px solid var(--line); border-radius:12px; padding:20px 22px; margin-bottom:18px;}
+  .panel-box h3{margin:0 0 14px; font-size:16px;}
+  .funnel-row{display:flex; align-items:center; gap:12px; margin-bottom:10px;}
+  .funnel-lbl{width:150px; font-size:12px; color:var(--ink-soft); font-weight:600; flex-shrink:0;}
+  .funnel-bar-wrap{flex:1; background:var(--paper); border-radius:6px; overflow:hidden; height:22px;}
+  .funnel-bar{height:100%; border-radius:6px; display:flex; align-items:center; justify-content:flex-end; padding-right:8px; transition:width .4s;}
+  .funnel-bar span{font-size:11px; font-weight:700; color:#fff; font-family:'IBM Plex Mono',monospace;}
+  .funnel-count{width:36px; text-align:right; font-family:'IBM Plex Mono',monospace; font-size:12.5px; font-weight:600; flex-shrink:0;}
+
+  .leader-table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  .leader-table th{text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-dim); padding:8px 10px; border-bottom:2px solid var(--ink);}
+  .leader-table td{padding:10px 10px; border-bottom:1px solid var(--line);}
+  .leader-rank{display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:var(--paper); font-size:11px; font-weight:700; color:var(--ink-soft);}
+  .leader-rank.top1{background:var(--brass); color:var(--ink);}
+  .mini-bar-track{background:var(--paper); border-radius:4px; height:8px; width:100px; overflow:hidden; display:inline-block; vertical-align:middle; margin-right:8px;}
+  .mini-bar-fill{height:100%; background:var(--c-pencairan);}
+
+  .donut-wrap{display:flex; align-items:center; gap:24px; flex-wrap:wrap;}
+  .donut-legend{display:flex; flex-direction:column; gap:8px; font-size:12.5px;}
+  .donut-legend-item{display:flex; align-items:center; gap:8px;}
+  .donut-legend-dot{width:10px; height:10px; border-radius:3px; flex-shrink:0;}
+
+  .pagination{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:12px; flex-wrap:wrap;}
+  .pagination .info{font-size:12px; color:var(--text-dim);}
+  .pagination .pages{display:flex; gap:6px; align-items:center;}
+  .pagination select{font-size:12px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; background:#fff;}
+  .pagination button{width:30px; height:30px; border-radius:6px; border:1px solid var(--line); background:#fff; cursor:pointer; font-size:12px;}
+  .pagination button:disabled{opacity:.4; cursor:not-allowed;}
+  .pagination button.current{background:var(--ink); color:#fff; border-color:var(--ink);}
+
+  /* =========================================================
+     MOBILE CARD VIEW — v2
+  ========================================================= */
+  .mobile-record-list{display:none; margin-top:12px;}
+  .mobile-record-card{
+    background:#fff; border:1px solid var(--line); border-radius:12px;
+    padding:14px 14px 12px; margin-bottom:10px; box-shadow:0 1px 0 rgba(20,33,61,.03);
+  }
+  .mobile-record-head{display:flex; justify-content:space-between; gap:10px; align-items:flex-start;}
+  .mobile-record-name{font-weight:700; font-size:14.5px; line-height:1.3;}
+  .mobile-record-date{font-family:'IBM Plex Mono',monospace; color:var(--text-dim); font-size:11px; white-space:nowrap;}
+  .mobile-record-meta{display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; margin-top:10px; font-size:12.5px;}
+  .mobile-record-meta .k{display:block; color:var(--text-dim); font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; font-weight:700; margin-bottom:2px;}
+  .mobile-record-tags{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px;}
+  .mobile-record-note{font-size:12px; color:var(--ink-soft); background:var(--paper); border-radius:8px; padding:8px 10px; margin-top:10px; line-height:1.45;}
+  .mobile-record-actions{display:flex; gap:8px; margin-top:12px;}
+  .mobile-record-actions .btn{flex:1; justify-content:center; padding:8px 10px;}
+
+  @media (max-width: 680px){
+    .topbar{align-items:flex-start;}
+    .topbar-tools{width:100%; overflow-x:auto; padding-bottom:4px; justify-content:flex-start;}
+    .topbar-tools .btn{white-space:nowrap;}
+    .topbar h1{font-size:22px;}
+    .cards-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .stat-card{padding:12px;}
+    .stat-card .num{font-size:22px;}
+    .toolbar{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+    .toolbar input[type=text]{grid-column:1/-1; min-width:0; width:100%;}
+    .toolbar select{min-width:0; width:100%;}
+    #fltCustomRange{grid-column:1/-1; width:100%;}
+    #fltCustomRange input[type=date]{flex:1; min-width:0; font-family:'Inter',sans-serif; font-size:13px; padding:9px 11px; border:1px solid var(--line); border-radius:6px; background:#fff; color:var(--ink);}
+    .table-wrap{display:none;}
+    .mobile-record-list{display:block;}
+    .pagination{background:#fff; border:1px solid var(--line); border-radius:10px; padding:10px;}
+    .pagination .info{width:100%;}
+    .pagination .pages{width:100%; overflow-x:auto; padding-bottom:2px;}
+    .form-wrap{padding:22px 18px; border-radius:10px;}
+    .form-actions{position:sticky; bottom:0; background:#fff; z-index:5; padding:12px 0 0;}
+    .modal-overlay{padding:18px 10px;}
+    .mobile-record-meta{grid-template-columns:1fr;}
+    .mobile-record-actions{flex-direction:column;}
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="mobile-backdrop" id="mobileBackdrop"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><span class="brand-icon">BK</span><span class="brand-text">FIRZA PROJECT<br> <small>Gass Polll</small></span></div>
+    <nav class="nav">
+      <button class="nav-btn active" data-view="dashboard"><span class="ic">&#9776;</span><span class="lbl-text"> Dashboard</span></button>
+      <button class="nav-btn" data-view="form"><span class="ic">&#10010;</span><span class="lbl-text"> Input Baru</span></button>
+      <button class="nav-btn" data-view="analytics"><span class="ic">&#128202;</span><span class="lbl-text"> Analitik</span></button>
+      <button class="nav-btn" id="btnOpenSettings"><span class="ic">&#9881;</span><span class="lbl-text"> Pengaturan</span></button>
+    </nav>
+    <div class="sidebar-foot" id="sidebarFoot">Data tersimpan di Google Sheets &amp; Fallback LocalStorage.</div>
+  </aside>
+
+  <div class="resizer" id="sidebarResizer" title="Geser untuk mengatur lebar menu">
+    <div class="resizer-handle">&#8942;</div>
+  </div>
+
+  <main class="main" id="main"></main>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modalBox"></div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<div class="notif-dropdown" id="notifDropdown" style="position:fixed; top:70px; right:32px;"></div>
+
+<button class="ai-fab" id="aiFabBtn" title="Tanya Asisten AI">🤖<span class="fab-dot"></span></button>
+<div class="ai-chat-panel" id="aiChatPanel">
+  <div class="ai-chat-head">
+    <div class="who">
+      <span style="font-size:22px;">🤖</span>
+      <div>
+        <div class="ttl">Asisten AI Tracking</div>
+        <div class="sub" id="aiChatModeLabel">Mode: Analisis Lokal</div>
+      </div>
+    </div>
+    <button id="aiChatCloseBtn">&times;</button>
+  </div>
+  <div class="ai-chat-body" id="aiChatBody"></div>
+  <div class="ai-suggest" id="aiSuggestRow"></div>
+  <div class="ai-chat-foot">
+    <input type="text" id="aiChatInput" placeholder="Tanyakan sesuatu tentang data pengajuan...">
+    <button id="aiChatSendBtn">&#10148;</button>
+  </div>
+</div>
+
+<script>
+/* =======================================================================
+   DATA LAYER — Offline-First Smart Persistence (Local + Google Sheets)
+======================================================================= */
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbz7BcPePKaZrLf_Pw8g2szSVVGLhUsaxNqU9qMU6iN208YM-M5WuzOBGB5QiewQ7533lg/exec';
+const LOCAL_STORAGE_KEY = 'tracking_kredit_db_v3';
+const NOTIF_KEY = 'tracking_kredit_notif_v1';
+const SETTINGS_KEY = 'tracking_kredit_settings_v1';
+const CHAT_HISTORY_KEY = 'tracking_kredit_chat_v1';
+const SYNC_QUEUE_KEY = 'tracking_kredit_sync_queue_v2';
+const APP_VERSION = '3.0.0';
+const DEFAULT_SETTINGS = {
+  browserNotif: false,
+  soundNotif: true,
+  aiApiKey: '',
+  aiModel: 'claude-sonnet-5',
+  reminderIntervalMin: 5,
+  holidayDates: '', // format: YYYY-MM-DD, satu tanggal per baris / dipisah koma
+  whatsappEnabled: false,
+  whatsappWebhookUrl: '',
+  whatsappRecipient: '', // format internasional, contoh: 62812xxxx
+  whatsappClientSecret: ''
+};
+
+const POSISI_LIST = ['Cek Data','Survey','Komite CA','Komite Kacab','Tanda Tangan Kontrak','Absah BPKB','Pencairan'];
+const STATUS_LIST = ['Proses','Batal','Pending','Reject Slik','Reject Non Slik','Approved'];
+const FINAL_STATUS_LIST = ['Batal','Reject Slik','Reject Non Slik'];
+// Status yang membuat fitur pengingat/reminder berhenti total: Batal, Reject Slik, Reject Non Slik, dan Approved.
+const REMINDER_STOP_STATUSES = [...FINAL_STATUS_LIST, 'Approved'];
+const CMO_LIST = ['Rahma Sari Dewi Nst','Alfian Ahmad Sufi Harahap','Febri H Ompusunggu','Juni Simbolon','Isra Dewi Sijabat','Ahmat Khairuntoni','Fikri Hafiz','Winda Yusryna'];
+const UNIT_LIST = ['Motor','Mobil'];
+const NEWRO_LIST = ['NEW','RO'];
+const MIN_TAHUN_KENDARAAN = 2013;
+function buildTahunList(){
+  const currentYear = new Date().getFullYear();
+  return Array.from({ length: currentYear - MIN_TAHUN_KENDARAAN + 1 }, (_, i) => String(MIN_TAHUN_KENDARAAN + i));
+}
+const TAHUN_LIST = buildTahunList();
+
+const WORK_START_HOUR = 8;
+const WORK_END_HOUR = 19;
+const WORK_HOURS_PER_DAY = WORK_END_HOUR - WORK_START_HOUR;
+const WORKDAY_LABEL = 'Senin–Sabtu, 08.00–19.00';
+
+// Batas SLA dihitung dalam JAM KERJA, bukan jam kalender.
+const STAGE_THRESHOLD_HOURS = {
+  'Cek Data': 3,
+  'Survey': 6,
+  'Komite CA': 4,
+  'Komite Kacab': 1,
+  'Tanda Tangan Kontrak': 3,
+  'Absah BPKB': 6,
+  'Pencairan': 6
+};
+
+const POSISI_COLOR = {
+  'Cek Data':'--c-cekdata','Survey':'--c-survey','Komite CA':'--c-komiteca',
+  'Komite Kacab':'--c-komitekacab','Tanda Tangan Kontrak':'--c-ttd',
+  'Absah BPKB':'--c-bpkb','Pencairan':'--c-pencairan'
+};
+const UNIT_COLOR = { 'Motor':'--c-motor', 'Mobil':'--c-mobil' };
+const STATUS_COLOR = {
+  'Proses':'--c-proses','Batal':'--c-batal','Pending':'--c-pending',
+  'Reject Slik':'--c-rejectslik','Reject Non Slik':'--c-rejectnonslik','Approved':'--c-approved'
+};
+
+let RECORDS = [];
+let STORAGE_MODE = 'syncing'; // 'online' | 'local' | 'syncing' | 'error'
+let currentView = 'dashboard';
+let editingId = null;
+let filters = { q:'', unit:'', cmo:'', posisi:'', status:'', periode:'', dateFrom:'', dateTo:'', sumberOrder:'' };
+let sortState = { key:'tanggalInput', dir:'desc' };
+let aiMessages = {};
+let aiLoading = false;
+let isDataLoading = false;
+let NOTIFS = [];
+let APP_SETTINGS = { ...DEFAULT_SETTINGS };
+let CHAT_HISTORY = [];
+let SYNC_QUEUE = [];
+let notifiedKeys = new Set(); // dedupe: `${id}::${posisi}` already notified this session/persist
+let pagination = { page: 1, pageSize: 25 };
+let reminderTimer = null;
+let isSyncingQueue = false;
+
+function uid(){ return 'r_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8); }
+function nowISO(){ return new Date().toISOString(); }
+function todayLocalISO(){
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0,10);
+}
+function normalizeDateOnly(value, fallback = todayLocalISO()){
+  if(value instanceof Date && !isNaN(value)){
+    const d = new Date(value); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0,10);
+  }
+  const s = String(value || '').trim();
+  if(!s) return fallback;
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  const dm = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2}|\d{4})$/);
+  if(dm){
+    const dd = dm[1].padStart(2,'0');
+    const mm = dm[2].padStart(2,'0');
+    const yyyy = dm[3].length === 2 ? '20' + dm[3] : dm[3];
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  // Dukungan angka serial Excel/Google Sheets jika restore/import dari spreadsheet.
+  if(/^\d+(\.\d+)?$/.test(s)){
+    const serial = Number(s);
+    if(serial > 20000 && serial < 80000){
+      const d = new Date(Math.round((serial - 25569) * 86400 * 1000));
+      if(!isNaN(d)) return d.toISOString().slice(0,10);
+    }
+  }
+  const parsed = new Date(s);
+  if(!isNaN(parsed)){
+    parsed.setMinutes(parsed.getMinutes() - parsed.getTimezoneOffset());
+    return parsed.toISOString().slice(0,10);
+  }
+  return fallback;
+}
+function dateOnlyToISO(dateStr){
+  const clean = normalizeDateOnly(dateStr, todayLocalISO());
+  return new Date(clean + 'T00:00:00').toISOString();
+}
+function normalizeDateTime(value, fallbackISO){
+  const fallback = fallbackISO || nowISO();
+  const s = String(value || '').trim();
+  if(!s) return fallback;
+  const parsed = new Date(s);
+  if(!isNaN(parsed)) return parsed.toISOString();
+  return dateOnlyToISO(normalizeDateOnly(s, normalizeDateOnly(fallback)));
+}
+
+// Menormalkan sebuah nilai teks ke nilai kanonik yang ada di daftar referensi (STATUS_LIST/POSISI_LIST).
+// Ini penting karena data bisa masuk dari sumber luar (Google Sheets diedit manual, import Excel/JSON)
+// yang bisa saja menulis "Approved " (ada spasi) atau "REJECT SLIK" (kapitalisasi beda) — kalau tidak
+// dinormalkan, perbandingan exact-match (mis. cek status final utk stop reminder) akan gagal walau
+// secara makna sama, sehingga reminder terus menyala meski datanya "sudah diupdate".
+function normalizeToListValue(value, list){
+  const raw = String(value ?? '').trim().replace(/\s+/g, ' ');
+  if(!raw) return raw;
+  if(list.includes(raw)) return raw;
+  const found = list.find(v => v.toLowerCase() === raw.toLowerCase());
+  return found || raw; // kalau tetap tidak ada padanannya, biarkan apa adanya agar terdeteksi sbg data tidak valid
+}
+
+function coerceRecord(rec){
+  // PENTING: tanggalInput TIDAK BOLEH otomatis di-default ke hari ini. Field ini hanya boleh
+  // berubah lewat input manual user di form. Kalau data sumber (server/import/local) memang tidak
+  // punya tanggal ini, biarkan kosong ('') supaya terlihat jelas belum diisi — jangan diam-diam
+  // diisi tanggal hari ini setiap kali data disinkron/dimuat ulang, karena itu bisa membuat tanggal
+  // yang sudah benar tertimpa otomatis tanpa sepengetahuan user.
+  const tglInput = normalizeDateOnly(rec.tanggalInput || rec['Tanggal Input'] || rec.tanggal || rec.dateInput, '');
+  const createdAt = normalizeDateTime(rec.createdAt || rec.created_at, dateOnlyToISO(tglInput));
+  const updatedAt = normalizeDateTime(rec.updatedAt || rec.lastUpdatedAt || rec.modifiedAt, createdAt);
+  // Field tanggal update bersifat manual/editable oleh user (beda dari updatedAt sistem yg otomatis).
+  const tglUpdate = normalizeDateOnly(rec.tanggalUpdate || rec['Tanggal Update'], tglInput);
+  // PENTING: semua field di bawah ini diberi alias nama kolom Bahasa Indonesia (spasi + kapital),
+  // karena backend Google Sheets kemungkinan mengembalikan data dgn nama kolom seperti itu, bukan
+  // camelCase JS. Tanpa alias ini, field bisa terbaca KOSONG khusus di device yg belum punya cache
+  // lokal (mis. pertama kali buka di HP) walau datanya sebenarnya ada di server — persis kasus
+  // field Keterangan yang hilang saat dibuka di HP.
+  return {
+    ...rec,
+    id: rec.id || uid(),
+    namaDebitur: rec.namaDebitur || rec['Nama Debitur'] || 'Tanpa Nama',
+    namaPasangan: rec.namaPasangan || rec['Nama Pasangan'] || '',
+    noHp: String(rec.noHp || rec['No HP'] || rec['No Hp'] || '').replace(/[^\d]/g,''),
+    newRo: normalizeToListValue(rec.newRo || rec['New/RO'] || rec['NEW/RO'], NEWRO_LIST),
+    unit: rec.unit || rec['Unit'] || '',
+    merek: rec.merek || rec['Merek'] || '',
+    tahun: String(rec.tahun ?? rec['Tahun'] ?? ''),
+    pinjaman: Number(rec.pinjaman ?? rec['Pinjaman']) || 0,
+    cmo: rec.cmo || rec['CMO'] || rec['Cmo'] || '',
+    sumberOrder: rec.sumberOrder || rec['Sumber Order'] || '',
+    keterangan: rec.keterangan || rec['Keterangan'] || rec.catatan || rec.notes || '',
+    status: normalizeToListValue(rec.status || rec['Status'], STATUS_LIST),
+    posisi: normalizeToListValue(rec.posisi || rec['Posisi'], POSISI_LIST),
+    tanggalInput: tglInput,
+    tanggalUpdate: tglUpdate,
+    createdAt,
+    updatedAt,
+    stageEnteredAt: normalizeDateTime(rec.stageEnteredAt || rec.createdAt, createdAt),
+    history: Array.isArray(rec.history) ? rec.history : []
+  };
+}
+
+function saveToLocalStorage(){
+  try{
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(RECORDS));
+  }catch(e){
+    console.warn('Gagal menyimpan ke localStorage:', e);
+  }
+}
+
+function loadFromLocalStorage(){
+  try{
+    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if(raw !== null){
+      const parsed = JSON.parse(raw);
+      if(Array.isArray(parsed)){
+        return parsed.map(coerceRecord);
+      }
+    }
+  }catch(e){}
+  return null;
+}
+
+/* =======================================================================
+   TOMBSTONE — Jejak permanen ID yang sudah dihapus dari app ini.
+   Mencegah "kebangkitan hantu": data yang sudah dihapus (via tombol Hapus,
+   ATAU dihapus langsung di Google Sheets) tidak boleh muncul lagi walau
+   proses sync sempat gagal/terlambat/race-condition dengan gasList().
+======================================================================= */
+const TOMBSTONE_KEY = 'datun_tombstones_v1';
+let TOMBSTONES = {}; // { [id]: isoTimestampDihapus }
+function loadTombstones(){
+  try{
+    const raw = localStorage.getItem(TOMBSTONE_KEY);
+    TOMBSTONES = raw ? JSON.parse(raw) : {};
+  }catch(e){ TOMBSTONES = {}; }
+}
+function saveTombstones(){
+  try{ localStorage.setItem(TOMBSTONE_KEY, JSON.stringify(TOMBSTONES)); }catch(e){}
+}
+function markTombstone(id){
+  TOMBSTONES[id] = nowISO();
+  saveTombstones();
+}
+function pruneOldTombstones(){
+  // Tombstone cukup disimpan 60 hari — cukup panjang untuk menutup semua kemungkinan
+  // race-condition sync, tapi tidak menumpuk selamanya di localStorage.
+  const cutoff = Date.now() - 60*24*3600*1000;
+  let changed = false;
+  Object.keys(TOMBSTONES).forEach(id=>{
+    if(new Date(TOMBSTONES[id]).getTime() < cutoff){ delete TOMBSTONES[id]; changed = true; }
+  });
+  if(changed) saveTombstones();
+}
+
+/* =======================================================================
+   SYNC QUEUE — v2: validasi hasil sync, pending update/delete tidak hilang
+======================================================================= */
+function loadSyncQueue(){
+  try{
+    const raw = localStorage.getItem(SYNC_QUEUE_KEY);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      SYNC_QUEUE = Array.isArray(parsed) ? parsed : [];
+      return;
+    }
+  }catch(e){}
+  SYNC_QUEUE = [];
+}
+function saveSyncQueue(){
+  try{ localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(SYNC_QUEUE.slice(-500))); }catch(e){}
+}
+function pendingSyncCount(){ return SYNC_QUEUE.length; }
+function getPendingDeleteIds(){
+  return new Set(SYNC_QUEUE.filter(op=>op.action==='delete').map(op=>op.id));
+}
+function cleanRecordForServer(record){
+  const clone = { ...(record||{}) };
+  delete clone._syncStatus;
+  delete clone._clientOnly;
+  // Sertakan juga alias nama kolom Bahasa Indonesia (selain camelCase) supaya data tetap tersimpan
+  // dgn benar apa pun konvensi nama kolom yg dipakai backend Google Sheets/Apps Script — terutama
+  // utk field yg pernah dilaporkan hilang seperti Keterangan.
+  clone['Keterangan'] = clone.keterangan;
+  clone['Tanggal Input'] = clone.tanggalInput;
+  clone['Tanggal Update'] = clone.tanggalUpdate;
+  clone['Nama Debitur'] = clone.namaDebitur;
+  clone['Nama Pasangan'] = clone.namaPasangan;
+  clone['No HP'] = clone.noHp;
+  clone['New/RO'] = clone.newRo;
+  clone['Sumber Order'] = clone.sumberOrder;
+  clone['Status'] = clone.status;
+  clone['Posisi'] = clone.posisi;
+  return clone;
+}
+function enqueueSync(action, payload){
+  const id = action === 'delete' ? payload : payload.id;
+  if(!id) return;
+  // Kompakkan queue agar operasi yang sama tidak menumpuk.
+  if(action === 'delete'){
+    SYNC_QUEUE = SYNC_QUEUE.filter(op=>op.id !== id);
+    SYNC_QUEUE.push({ opId: uid(), action:'delete', id, timestamp: nowISO() });
+  } else if(action === 'create'){
+    const existing = SYNC_QUEUE.find(op=>op.id === id && op.action === 'create');
+    if(existing){ existing.record = cleanRecordForServer(payload); existing.timestamp = nowISO(); }
+    else {
+      SYNC_QUEUE = SYNC_QUEUE.filter(op=>!(op.id === id && op.action === 'delete'));
+      SYNC_QUEUE.push({ opId: uid(), action:'create', id, record: cleanRecordForServer(payload), timestamp: nowISO() });
+    }
+  } else if(action === 'update'){
+    const existingCreate = SYNC_QUEUE.find(op=>op.id === id && op.action === 'create');
+    if(existingCreate){ existingCreate.record = cleanRecordForServer(payload); existingCreate.timestamp = nowISO(); }
+    else {
+      const existingUpdate = SYNC_QUEUE.find(op=>op.id === id && op.action === 'update');
+      if(existingUpdate){ existingUpdate.record = cleanRecordForServer(payload); existingUpdate.timestamp = nowISO(); }
+      else SYNC_QUEUE.push({ opId: uid(), action:'update', id, record: cleanRecordForServer(payload), timestamp: nowISO() });
+    }
+  }
+  saveSyncQueue();
+}
+function dequeueSync(opId){
+  SYNC_QUEUE = SYNC_QUEUE.filter(op=>op.opId !== opId);
+  saveSyncQueue();
+}
+async function processSyncQueue(){
+  if(STORAGE_MODE !== 'online' || isSyncingQueue || SYNC_QUEUE.length === 0) return { success: false, processed:0 };
+  isSyncingQueue = true;
+  let processed = 0;
+  try{
+    for(const op of [...SYNC_QUEUE]){
+      let res;
+      if(op.action === 'create') res = await gasCreate(op.record);
+      else if(op.action === 'update') res = await gasUpdate(op.record);
+      else if(op.action === 'delete') res = await gasDelete(op.id);
+      if(res && res.success){
+        processed++;
+        if(op.action === 'create') markSyncedLocally(op.id);
+        dequeueSync(op.opId);
+      } else {
+        // Hentikan agar urutan operasi tetap aman. Coba lagi pada refresh berikutnya.
+        break;
+      }
+    }
+    if(processed > 0){
+      saveToLocalStorage();
+      renderNotifBadge();
+      showToast(`${processed} perubahan tertunda berhasil disinkronkan.`);
+      pushNotification('sync', `${processed} perubahan lokal berhasil disinkronkan ke Google Sheets.`);
+    }
+    return { success: SYNC_QUEUE.length === 0, processed };
+  }finally{
+    isSyncingQueue = false;
+  }
+}
+// Menandai record sbg sudah terkonfirmasi tersimpan di server, sehingga tidak lagi
+// dianggap "belum pernah sync" oleh reconcileWithServer() saat reload berikutnya.
+function markSyncedLocally(id){
+  const r = RECORDS.find(x=>x.id===id);
+  if(r && r._clientOnly){ delete r._clientOnly; saveToLocalStorage(); }
+}
+async function syncCreateChecked(record){
+  if(STORAGE_MODE !== 'online'){
+    enqueueSync('create', record);
+    return false;
+  }
+  const res = await gasCreate(cleanRecordForServer(record));
+  if(!res || !res.success){ enqueueSync('create', record); return false; }
+  markSyncedLocally(record.id);
+  return true;
+}
+async function syncUpdateChecked(record){
+  if(STORAGE_MODE !== 'online'){
+    enqueueSync('update', record);
+    return false;
+  }
+  const res = await gasUpdate(cleanRecordForServer(record));
+  if(!res || !res.success){ enqueueSync('update', record); return false; }
+  return true;
+}
+async function syncDeleteChecked(id){
+  if(STORAGE_MODE !== 'online'){
+    enqueueSync('delete', id);
+    return false;
+  }
+  const res = await gasDelete(id);
+  if(!res || !res.success){ enqueueSync('delete', id); return false; }
+  return true;
+}
+
+/* =======================================================================
+   APP SETTINGS
+======================================================================= */
+function loadSettings(){
+  try{
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if(raw){ APP_SETTINGS = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }; return; }
+  }catch(e){}
+  APP_SETTINGS = { ...DEFAULT_SETTINGS };
+}
+function saveSettings(){
+  try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify(APP_SETTINGS)); }catch(e){}
+}
+
+/* =======================================================================
+   NOTIFICATION CENTER — Store & Rendering
+======================================================================= */
+function loadNotifs(){
+  try{
+    const raw = localStorage.getItem(NOTIF_KEY);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      NOTIFS = Array.isArray(parsed.list) ? parsed.list : [];
+      notifiedKeys = new Set(parsed.notifiedKeys || []);
+      return;
+    }
+  }catch(e){}
+  NOTIFS = [];
+  notifiedKeys = new Set();
+}
+function saveNotifs(){
+  try{
+    localStorage.setItem(NOTIF_KEY, JSON.stringify({ list: NOTIFS.slice(0,150), notifiedKeys: Array.from(notifiedKeys) }));
+  }catch(e){}
+}
+function unreadNotifCount(){ return NOTIFS.filter(n=>!n.read).length; }
+function cleanPhoneNumber(phone){ return String(phone||'').replace(/[^0-9]/g,''); }
+async function sendWhatsAppNotification(message, meta){
+  if(!APP_SETTINGS.whatsappEnabled) return;
+  const webhookUrl = String(APP_SETTINGS.whatsappWebhookUrl||'').trim();
+  const recipient = cleanPhoneNumber(APP_SETTINGS.whatsappRecipient);
+  if(!webhookUrl || !recipient) return;
+  const payload = {
+    secret: APP_SETTINGS.whatsappClientSecret || '',
+    to: recipient,
+    message,
+    meta: meta || {},
+    sentAt: nowISO(),
+    app: 'DATUN Project v3'
+  };
+  try{
+    const res = await fetch(webhookUrl, {
+      method:'POST',
+      headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+    // Beberapa deployment Apps Script tidak mengizinkan response dibaca karena CORS.
+    // Jika request terkirim tapi response diblokir browser, catch di bawah akan mencatatnya.
+    if(res && !res.ok) console.warn('WhatsApp webhook HTTP status:', res.status);
+  }catch(err){
+    console.warn('Gagal mengirim WhatsApp reminder:', err);
+  }
+}
+
+function pushNotification(type, message, meta){
+  const notif = { id: uid(), type, message, meta: meta||{}, timestamp: nowISO(), read:false };
+  NOTIFS.unshift(notif);
+  if(NOTIFS.length > 150) NOTIFS.length = 150;
+  saveNotifs();
+  renderNotifBadge();
+  const dd = document.getElementById('notifDropdown');
+  if(dd && dd.classList.contains('open')) renderNotifDropdown();
+  if(APP_SETTINGS.soundNotif) playNotifSound();
+  if(APP_SETTINGS.browserNotif && 'Notification' in window && Notification.permission === 'granted'){
+    try{ new Notification('Tracking Kredit', { body: message, tag: notif.id }); }catch(e){}
+  }
+  if(type === 'overdue'){
+    sendWhatsAppNotification('⏰ Reminder Tracking DATUN\n\n' + message + `\n\nJam kerja: ${WORKDAY_LABEL}\nWaktu cek: ${formatDateTime(nowISO())}`, meta||{});
+  }
+  return notif;
+}
+
+function notifIcon(type){
+  return { overdue:'⏰', sync:'🔄', success:'✅', error:'⚠️', info:'ℹ️' }[type] || '🔔';
+}
+
+function renderNotifBadge(){
+  const badge = document.getElementById('notifBadge');
+  if(!badge) return;
+  const n = unreadNotifCount();
+  badge.style.display = n > 0 ? 'flex' : 'none';
+  badge.textContent = n > 99 ? '99+' : String(n);
+}
+
+function renderNotifDropdown(){
+  const dd = document.getElementById('notifDropdown');
+  if(!dd) return;
+  const items = NOTIFS.slice(0, 40);
+  const list = items.length ? items.map(n=>`
+    <div class="notif-item ${n.read?'':'unread'}" data-notif="${n.id}">
+      <div class="ic">${notifIcon(n.type)}</div>
+      <div class="body">
+        <div class="msg">${escapeHtml(n.message)}</div>
+        <div class="time">${formatDateTime(n.timestamp)}</div>
+      </div>
+    </div>
+  `).join('') : `<div class="notif-empty">Belum ada notifikasi. Semua pengajuan berjalan aman.</div>`;
+
+  dd.innerHTML = `
+    <div class="notif-head">
+      <h4>Notifikasi</h4>
+      <button id="notifMarkAllRead">Tandai semua dibaca</button>
+    </div>
+    <div class="notif-list">${list}</div>
+    <div class="notif-foot">
+      <label><input type="checkbox" id="chkBrowserNotif" ${APP_SETTINGS.browserNotif?'checked':''}> Aktifkan notifikasi browser</label>
+    </div>
+  `;
+  const markAll = document.getElementById('notifMarkAllRead');
+  if(markAll) markAll.addEventListener('click', ()=>{
+    NOTIFS.forEach(n=>n.read=true); saveNotifs(); renderNotifBadge(); renderNotifDropdown();
+  });
+  dd.querySelectorAll('[data-notif]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const n = NOTIFS.find(x=>x.id===el.dataset.notif);
+      if(n){ n.read = true; saveNotifs(); renderNotifBadge(); el.classList.remove('unread'); }
+      if(n && n.meta && n.meta.recordId){ toggleNotifDropdown(false); openDetailModal(n.meta.recordId); }
+    });
+  });
+  const chkBrowser = document.getElementById('chkBrowserNotif');
+  if(chkBrowser) chkBrowser.addEventListener('change', async (e)=>{
+    if(e.target.checked){
+      if('Notification' in window){
+        const perm = await Notification.requestPermission();
+        APP_SETTINGS.browserNotif = perm === 'granted';
+        if(perm !== 'granted'){ e.target.checked = false; showToast('Izin notifikasi browser ditolak.'); }
+        else showToast('Notifikasi browser diaktifkan.');
+      } else {
+        e.target.checked = false; showToast('Browser ini tidak mendukung notifikasi.');
+      }
+    } else {
+      APP_SETTINGS.browserNotif = false;
+    }
+    saveSettings();
+  });
+}
+
+function bindNotifBellEvents(){
+  const bell = document.getElementById('notifBellBtn');
+  if(bell) bell.addEventListener('click', (e)=>{ e.stopPropagation(); toggleNotifDropdown(); });
+}
+document.addEventListener('click', (e)=>{
+  const dd = document.getElementById('notifDropdown');
+  const bell = document.getElementById('notifBellBtn');
+  if(dd && dd.classList.contains('open') && !dd.contains(e.target) && e.target !== bell && !(bell && bell.contains(e.target))){
+    toggleNotifDropdown(false);
+  }
+});
+
+function toggleNotifDropdown(force){
+  const dd = document.getElementById('notifDropdown');
+  if(!dd) return;
+  const open = force !== undefined ? force : !dd.classList.contains('open');
+  dd.classList.toggle('open', open);
+  if(open) renderNotifDropdown();
+}
+
+let audioCtx = null;
+function playNotifSound(){
+  try{
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = 'sine'; o.frequency.value = 880;
+    g.gain.setValueAtTime(0.001, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.12, audioCtx.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + 0.36);
+  }catch(e){}
+}
+
+async function gasList(){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000); // 10 detik timeout
+  try{
+    const res = await fetch(GAS_URL + '?action=list', { method:'GET', signal: controller.signal });
+    clearTimeout(timer);
+    if(!res.ok) throw new Error(`HTTP ${res.status} saat memuat Google Sheets`);
+    const data = await res.json();
+    if(!data.success) throw new Error(data.error || 'Gagal memuat dari Google Sheets');
+    return (data.records || []).map(coerceRecord);
+  }catch(err){
+    clearTimeout(timer);
+    throw err;
+  }
+}
+
+async function gasCreate(record){
+  if(STORAGE_MODE !== 'online') return { success: false, offline: true };
+  try{
+    const res = await fetch(GAS_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action:'create', record })
+    });
+    if(!res.ok) throw new Error(`HTTP ${res.status} saat create`);
+    const data = await res.json();
+    if(!data.success) throw new Error(data.error);
+    return data;
+  }catch(e){
+    console.warn('Gagal sync create ke server:', e);
+    return { success: false, error: e.message };
+  }
+}
+
+async function gasUpdate(record){
+  if(STORAGE_MODE !== 'online') return { success: false, offline: true };
+  try{
+    const res = await fetch(GAS_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action:'update', record })
+    });
+    if(!res.ok) throw new Error(`HTTP ${res.status} saat update`);
+    const data = await res.json();
+    if(!data.success) throw new Error(data.error);
+    return data;
+  }catch(e){
+    console.warn('Gagal sync update ke server:', e);
+    return { success: false, error: e.message };
+  }
+}
+
+async function gasDelete(id){
+  if(STORAGE_MODE !== 'online') return { success: false, offline: true };
+  try{
+    const res = await fetch(GAS_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action:'delete', id })
+    });
+    if(!res.ok) throw new Error(`HTTP ${res.status} saat delete`);
+    const data = await res.json();
+    if(!data.success) throw new Error(data.error);
+    return data;
+  }catch(e){
+    console.warn('Gagal sync delete ke server:', e);
+    return { success: false, error: e.message };
+  }
+}
+
+// Menyatukan data lokal dengan data dari Google Sheets secara AMAN.
+// Ini menggantikan logika lama yang naif ("data lokal yg tidak ada di server = data baru,
+// hidupkan lagi & kirim ulang ke server") — logika lama itulah yang menyebabkan record yang
+// sudah dihapus (baik lewat tombol Hapus maupun dihapus langsung di Google Sheets) terus
+// "bangkit lagi" setiap kali app dimuat ulang, sehingga reminder-nya tidak pernah benar2 berhenti.
+//
+// v2 — PENTING: sebelumnya, untuk record yg ADA di kedua sisi (lokal & server), sistem SELALU
+// memakai versi server apa adanya tanpa dibandingkan dulu. Ini menyebabkan input yang baru saja
+// diisi user (mis. field Keterangan) hilang/kosong lagi setiap reload, kalau sinkron ke Google
+// Sheets belum sempat membawa balik nilai itu dengan benar (lag/kolom tidak lengkap/dsb).
+// Sekarang dibandingkan berdasar "siapa yang lebih baru": data lokal menang kalau masih ada di
+// antrean sync yg belum terkonfirmasi ATAU updatedAt lokal >= updatedAt server. Dengan begitu,
+// input terakhir user SELALU yang tampil, sesuai prinsip "keterangan selalu menampilkan input
+// yang terakhir diinput/terupdate".
+//
+// Aturan lengkap:
+// 1. Record dgn pending-delete lokal -> tetap dianggap terhapus, walau masih muncul di server.
+// 2. Record yg pernah ditandai tombstone (pernah dihapus dari app ini) -> tetap terhapus,
+//    walau race-condition membuat server sempat masih mengirim datanya.
+// 3. Record lokal yg TIDAK ada di server:
+//      - Kalau _clientOnly (memang baru dibuat & belum pernah sukses sync) -> pertahankan &
+//        antre ulang untuk dikirim ke server (perilaku lama yang benar).
+//      - Kalau BUKAN _clientOnly (dulu sudah pernah tersinkron) -> berarti dihapus di luar
+//        aplikasi (mis. langsung di Google Sheets). JANGAN dihidupkan lagi. Hapus dari lokal +
+//        bersihkan semua jejak reminder/notifikasinya, lalu beri tahu user secara transparan.
+// 4. Record lokal yg ADA di server -> pakai yang updatedAt-nya lebih baru (atau lokal, jika masih
+//    ada perubahan lokal yg belum terkonfirmasi tersinkron).
+function reconcileWithServer(serverRecords){
+  pruneOldTombstones();
+  const pendingDeleteIds = getPendingDeleteIds();
+  const pendingUpdateIds = new Set(SYNC_QUEUE.filter(op=>op.action==='update' || op.action==='create').map(op=>op.id));
+  const mapServer = new Map();
+
+  (serverRecords || []).forEach(r=>{
+    if(pendingDeleteIds.has(r.id)) return;
+    if(TOMBSTONES[r.id]) return;
+    mapServer.set(r.id, r);
+  });
+
+  const ghostsRemoved = [];
+  RECORDS.forEach(lr=>{
+    if(pendingDeleteIds.has(lr.id)) return;
+    const sv = mapServer.get(lr.id);
+    if(!sv){
+      if(lr._clientOnly){
+        mapServer.set(lr.id, lr);
+        enqueueSync('create', lr);
+      } else {
+        ghostsRemoved.push(lr);
+      }
+      return;
+    }
+    // Record ada di kedua sisi — jangan asal timpa dgn versi server, bandingkan dulu.
+    const localTime = new Date(lr.updatedAt || lr.createdAt || 0).getTime();
+    const serverTime = new Date(sv.updatedAt || sv.createdAt || 0).getTime();
+    if(pendingUpdateIds.has(lr.id) || localTime >= serverTime){
+      mapServer.set(lr.id, lr); // data lokal lebih baru (atau masih menunggu sync) -> pertahankan lokal
+    } else if(!String(sv.keterangan||'').trim() && String(lr.keterangan||'').trim()){
+      // Server "menang" berdasar waktu, TAPI keterangan di server kosong padahal lokal ada isinya.
+      // Ini pengaman tambahan khusus utk field Keterangan (paling sering dilaporkan hilang akibat
+      // proses sinkron ke Google Sheets yg belum sempurna membawa balik nilainya) — jangan pernah
+      // menimpa catatan yang sudah diisi user dengan nilai kosong.
+      sv.keterangan = lr.keterangan;
+    }
+    // Pengaman yang sama untuk Tanggal Input: field ini cuma boleh berubah lewat input manual user
+    // lewat form edit, TIDAK boleh diam-diam tertimpa kosong/berbeda hanya karena proses sinkron.
+    // Kalau server tidak punya tanggal input (kosong) padahal lokal sudah punya, pertahankan nilai lokal.
+    if(!String(sv.tanggalInput||'').trim() && String(lr.tanggalInput||'').trim()){
+      sv.tanggalInput = lr.tanggalInput;
+    }
+  });
+
+  RECORDS = Array.from(mapServer.values());
+
+  if(ghostsRemoved.length){
+    ghostsRemoved.forEach(r=>{
+      markTombstone(r.id);
+      Array.from(notifiedKeys).forEach(key=>{ if(key.startsWith(r.id + '::')) notifiedKeys.delete(key); });
+      delete aiMessages[r.id];
+    });
+    saveNotifs();
+    const names = ghostsRemoved.map(r=>r.namaDebitur).join(', ');
+    pushNotification('info', `${ghostsRemoved.length} data (${names}) sudah tidak ada di Google Sheets — disinkronkan (dihapus) dari aplikasi ini, termasuk semua pengingat reminder-nya.`);
+  }
+}
+
+async function initDataEngine(){
+  // 1. OFFLINE-FIRST: Muat seketika dari LocalStorage agar data tidak pernah hilang/kosong saat dibuka.
+  const localData = loadFromLocalStorage();
+  if(localData !== null){
+    RECORDS = localData;
+    STORAGE_MODE = 'syncing';
+    render();
+  } else {
+    RECORDS = [];
+    isDataLoading = true;
+    render();
+  }
+
+  // 2. BACKGROUND SYNC: Coba hubungi Google Sheets, rekonsiliasi aman terhadap pending delete/update lokal.
+  try{
+    const serverRecords = await gasList();
+    STORAGE_MODE = 'online';
+    reconcileWithServer(serverRecords);
+    saveToLocalStorage();
+
+    const before = pendingSyncCount();
+    await processSyncQueue();
+    if(before > 0 && pendingSyncCount() === 0){
+      showToast('Semua perubahan offline sudah tersinkron ke Google Sheets.');
+    }
+  }catch(e){
+    console.warn('Google Sheets offline/tidak terjangkau. Menggunakan penyimpanan lokal penuh.', e);
+    STORAGE_MODE = 'local';
+    saveToLocalStorage();
+    if(pendingSyncCount() > 0){
+      pushNotification('error', `${pendingSyncCount()} perubahan belum tersinkron karena Google Sheets tidak terjangkau.`);
+    } else {
+      pushNotification('error', 'Google Sheets tidak terjangkau. Aplikasi berjalan dalam mode lokal/offline.');
+    }
+  }finally{
+    isDataLoading = false;
+    warnInvalidRecords();
+    render();
+  }
+}
+
+/* =======================================================================
+   UTILITIES
+======================================================================= */
+function formatRibuan(numStr){
+  const digits = String(numStr).replace(/[^\d]/g,'');
+  if(!digits) return '';
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+function parseRibuan(str){
+  return parseInt(String(str).replace(/[^\d]/g,''),10) || 0;
+}
+function formatRupiah(n){
+  return 'Rp ' + formatRibuan(String(n || 0));
+}
+function formatTanggalDDMMYY(isoDate){
+  if(!isoDate) return '-';
+  const d = new Date(isoDate + 'T00:00:00');
+  if(isNaN(d)) return isoDate;
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const yy = String(d.getFullYear()).slice(-2);
+  return `${dd}/${mm}/${yy}`;
+}
+function formatDateTime(iso){
+  if(!iso) return '-';
+  const d = new Date(iso);
+  if(isNaN(d)) return '-';
+  return d.toLocaleString('id-ID', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+function hoursSince(iso){
+  if(!iso) return 0;
+  const d = new Date(iso).getTime();
+  if(isNaN(d)) return 0;
+  return Math.max(0, (Date.now() - d) / 36e5);
+}
+function formatDurasi(hours){
+  if(isNaN(hours) || hours <= 0) return 'Baru saja';
+  if(hours < 24) return Math.floor(hours) + ' jam';
+  const d = Math.floor(hours/24); const h = Math.floor(hours%24);
+  return d + ' hari' + (h>0 ? ' ' + h + ' jam' : '');
+}
+function parseHolidayDates(){
+  const raw = APP_SETTINGS.holidayDates || '';
+  return new Set(String(raw).split(/[\s,;]+/).map(x=>x.trim()).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x)));
+}
+function dateKeyLocal(d){
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function isWorkingDay(d){
+  // getDay(): 0=Minggu, 1=Senin, ... 6=Sabtu. Hari aktif: Senin–Sabtu.
+  if(d.getDay() === 0) return false;
+  return !parseHolidayDates().has(dateKeyLocal(d));
+}
+function businessHoursBetween(startISO, endDate = new Date()){
+  const start = new Date(startISO);
+  if(!startISO || isNaN(start) || endDate <= start) return 0;
+  let cursor = new Date(start);
+  let totalMs = 0;
+  // Guard agar aman untuk rentang sangat panjang.
+  let guard = 0;
+  while(cursor < endDate && guard < 5000){
+    guard++;
+    const dayStart = new Date(cursor); dayStart.setHours(WORK_START_HOUR,0,0,0);
+    const dayEnd = new Date(cursor); dayEnd.setHours(WORK_END_HOUR,0,0,0);
+    if(isWorkingDay(cursor)){
+      const from = new Date(Math.max(cursor.getTime(), dayStart.getTime()));
+      const to = new Date(Math.min(endDate.getTime(), dayEnd.getTime()));
+      if(to > from) totalMs += to - from;
+    }
+    cursor = new Date(cursor);
+    cursor.setDate(cursor.getDate() + 1);
+    cursor.setHours(0,0,0,0);
+  }
+  return totalMs / 36e5;
+}
+function addBusinessHours(startDate, hoursToAdd){
+  let remainingMs = Math.max(0, hoursToAdd) * 36e5;
+  let cursor = new Date(startDate || new Date());
+  let guard = 0;
+  while(remainingMs > 0 && guard < 5000){
+    guard++;
+    const dayStart = new Date(cursor); dayStart.setHours(WORK_START_HOUR,0,0,0);
+    const dayEnd = new Date(cursor); dayEnd.setHours(WORK_END_HOUR,0,0,0);
+    if(!isWorkingDay(cursor) || cursor >= dayEnd){
+      cursor.setDate(cursor.getDate() + 1);
+      cursor.setHours(WORK_START_HOUR,0,0,0);
+      continue;
+    }
+    if(cursor < dayStart) cursor = new Date(dayStart);
+    const availableMs = Math.max(0, dayEnd - cursor);
+    const step = Math.min(remainingMs, availableMs);
+    cursor = new Date(cursor.getTime() + step);
+    remainingMs -= step;
+  }
+  return cursor;
+}
+function workingHoursSince(iso){ return businessHoursBetween(iso, new Date()); }
+function formatWorkDurasi(hours){
+  if(isNaN(hours) || hours <= 0) return '0 jam kerja';
+  if(hours < 1) return Math.round(hours*60) + ' menit kerja';
+  const d = Math.floor(hours / WORK_HOURS_PER_DAY);
+  const h = Math.floor(hours % WORK_HOURS_PER_DAY);
+  if(d <= 0) return h + ' jam kerja';
+  return d + ' hari kerja' + (h>0 ? ' ' + h + ' jam' : '');
+}
+function escapeHtml(s){
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function showToast(msg){
+  const wrap = document.getElementById('toastWrap');
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),300); }, 3500);
+}
+
+/* =======================================================================
+   REMINDER / AI LOGIC (Cerdas & Cepat)
+======================================================================= */
+function computeOverdue(){
+  const list = [];
+  RECORDS.forEach(r=>{
+    // Pengingat berhenti total begitu status masuk kondisi final: Batal, Reject Slik, Reject Non Slik, atau Approved.
+    if(REMINDER_STOP_STATUSES.includes(r.status)) return;
+    const threshold = STAGE_THRESHOLD_HOURS[r.posisi];
+    if(threshold == null) return;
+    const elapsed = workingHoursSince(r.stageEnteredAt);
+    const snoozeUntil = r.snoozeUntil ? new Date(r.snoozeUntil).getTime() : 0;
+    if(elapsed >= threshold && Date.now() >= snoozeUntil){
+      list.push({ record:r, elapsedHours:elapsed, thresholdHours:threshold });
+    }
+  });
+  list.sort((a,b)=> (b.elapsedHours-b.thresholdHours) - (a.elapsedHours-a.thresholdHours));
+  return list;
+}
+
+function localFallbackMessage(item){
+  const r = item.record;
+  const dur = formatWorkDurasi(item.elapsedHours);
+  const bat = formatWorkDurasi(item.thresholdHours);
+  return `⚠️ Debitur ${r.namaDebitur} (${r.unit} ${r.merek}) tertahan di tahap "${r.posisi}" selama ${dur} (melebihi batas normal ${bat}). Perhitungan mengikuti jam kerja ${WORKDAY_LABEL}, tidak menghitung hari Minggu/tanggal merah. CMO ${r.cmo} disarankan segera menindaklanjuti progres pengajuan ini.`;
+}
+
+async function callAIForOverdue(overdueList){
+  if(overdueList.length === 0){ aiMessages = {}; return; }
+  aiLoading = true;
+  renderAIPanel();
+  
+  // Karena panggil API Anthropic langsung dari browser diblokir CORS,
+  // kita gunakan generator pengingat cerdas internal agar tidak ada error network.
+  setTimeout(() => {
+    const map = {};
+    overdueList.forEach(it => {
+      map[it.record.id] = { message: localFallbackMessage(it), generatedAt: nowISO() };
+    });
+    aiMessages = map;
+    aiLoading = false;
+    renderAIPanel();
+  }, 400);
+}
+
+function purgeReminderTracesForFinalRecords(){
+  // Begitu status jadi Batal/Reject Slik/Reject Non Slik/Approved, hapus jejak dedupe notifikasi
+  // milik record tsb. Ini memastikan pengingat benar-benar berhenti (bukan sekadar tidak muncul baru),
+  // dan jika suatu saat status dikembalikan ke Proses/Pending, notifikasi bisa muncul lagi secara wajar.
+  RECORDS.forEach(r=>{
+    if(!REMINDER_STOP_STATUSES.includes(r.status)) return;
+    Array.from(notifiedKeys).forEach(key=>{
+      if(key.startsWith(r.id + '::')) notifiedKeys.delete(key);
+    });
+  });
+}
+
+// Deteksi record yang nilai status/posisi-nya TIDAK persis sama dengan STATUS_LIST/POSISI_LIST
+// (walau sudah lewat normalizeToListValue). Biasanya terjadi kalau data diedit manual langsung
+// di Google Sheets dengan kata yang beda maknanya sedikit (mis. "Cancel" alih-alih "Batal").
+// Record seperti ini TIDAK akan pernah dianggap "final" oleh sistem, sehingga reminder terus
+// menyala walau menurut orang yang mengedit datanya sudah "selesai".
+function findInvalidStatusOrPosisiRecords(){
+  return RECORDS.filter(r => !STATUS_LIST.includes(r.status) || !POSISI_LIST.includes(r.posisi));
+}
+
+function warnInvalidRecords(){
+  const invalid = findInvalidStatusOrPosisiRecords();
+  invalid.forEach(r=>{
+    const key = `datainvalid::${r.id}::${r.status}::${r.posisi}`;
+    if(notifiedKeys.has(key)) return;
+    notifiedKeys.add(key);
+    const parts = [];
+    if(!STATUS_LIST.includes(r.status)) parts.push(`status="${r.status || '(kosong)'}"`);
+    if(!POSISI_LIST.includes(r.posisi)) parts.push(`posisi="${r.posisi || '(kosong)'}"`);
+    pushNotification('error', `Data ${r.namaDebitur} punya ${parts.join(' & ')} yang tidak dikenali sistem. Reminder tidak akan berhenti otomatis sampai diperbaiki lewat form Edit (pilih ulang dari dropdown).`, { recordId: r.id });
+  });
+  if(invalid.length) saveNotifs();
+}
+
+function refreshReminders(){
+  purgeReminderTracesForFinalRecords();
+  warnInvalidRecords();
+  const overdue = computeOverdue();
+  overdue.forEach(it=>{
+    const key = `${it.record.id}::${it.record.posisi}`;
+    if(!notifiedKeys.has(key)){
+      notifiedKeys.add(key);
+      pushNotification('overdue', `Debitur ${it.record.namaDebitur} tertahan ${formatWorkDurasi(it.elapsedHours)} di tahap "${it.record.posisi}" (batas ${formatWorkDurasi(it.thresholdHours)}).`, { recordId: it.record.id });
+      saveNotifs();
+    }
+  });
+  callAIForOverdue(overdue);
+}
+
+// ALUR KERJA SLA — Konfirmasi/tunda BUKAN LAGI sekadar menyembunyikan reminder selama X jam,
+// melainkan mereset penuh durasi SLA ke 0 (sama seperti saat edit/update posisi), lalu berjalan
+// lagi dari awal mengikuti ketentuan durasi SLA posisi saat ini.
+async function confirmReminder(id){
+  const r = RECORDS.find(x=>x.id===id);
+  if(!r) return;
+  const ts = nowISO();
+  const prevElapsedHours = workingHoursSince(r.stageEnteredAt);
+  const updated = {
+    ...r,
+    updatedAt: ts,
+    tanggalUpdate: todayLocalISO(),
+    stageEnteredAt: ts,
+    snoozeUntil: null,
+    history: [...(r.history||[]), { timestamp: ts, posisi:r.posisi, status:r.status, note:`Dikonfirmasi masih diproses. SLA direset ke 0 (sebelumnya berjalan ${formatWorkDurasi(prevElapsedHours)}), mulai berjalan lagi sesuai ketentuan durasi posisi "${r.posisi}".` }]
+  };
+  try{
+    Object.assign(r, updated);
+    saveToLocalStorage();
+    const synced = await syncUpdateChecked(updated);
+    showToast(synced
+      ? `Dikonfirmasi — SLA ${r.namaDebitur} direset dan tersinkron.`
+      : `Dikonfirmasi — SLA ${r.namaDebitur} direset lokal. Sync server menunggu koneksi.`);
+  }catch(err){
+    console.error(err);
+    showToast('Gagal menyimpan konfirmasi.');
+  }
+  refreshReminders();
+  renderTable();
+  renderCards();
+}
+
+/* =======================================================================
+   AI AGENT — CHAT AVATAR (Local NLU + optional real Claude API)
+======================================================================= */
+function loadChatHistory(){
+  try{
+    const raw = localStorage.getItem(CHAT_HISTORY_KEY);
+    if(raw) CHAT_HISTORY = JSON.parse(raw);
+  }catch(e){ CHAT_HISTORY = []; }
+}
+function saveChatHistory(){
+  try{ localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(CHAT_HISTORY.slice(-60))); }catch(e){}
+}
+
+const AI_SUGGESTIONS = [
+  'Ada berapa pengajuan yang tertunda?',
+  'Siapa CMO paling produktif?',
+  'Berapa total nilai pinjaman aktif?',
+  'Apa saja yang perlu segera ditindaklanjuti?'
+];
+
+function openAIChat(){
+  document.getElementById('aiChatPanel').classList.add('open');
+  document.getElementById('aiChatModeLabel').textContent = APP_SETTINGS.aiApiKey ? `Mode: Claude API (${APP_SETTINGS.aiModel})` : 'Mode: Analisis Lokal';
+  if(CHAT_HISTORY.length === 0){
+    addChatMessage('bot', `Halo! Saya Asisten AI Tracking Kredit 🤖. Saya bisa membantu menganalisis data pengajuan, mencari debitur, mengecek performa CMO, atau merangkum pengajuan yang perlu perhatian. Ada yang bisa dibantu?`);
+  } else {
+    renderChatBody();
+  }
+  renderChatSuggestions();
+  document.getElementById('aiChatInput').focus();
+}
+function closeAIChat(){ document.getElementById('aiChatPanel').classList.remove('open'); }
+
+function renderChatSuggestions(){
+  const row = document.getElementById('aiSuggestRow');
+  if(!row) return;
+  row.innerHTML = AI_SUGGESTIONS.map(s=>`<button data-sug="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join('');
+  row.querySelectorAll('[data-sug]').forEach(b=> b.addEventListener('click', ()=>{
+    document.getElementById('aiChatInput').value = b.dataset.sug;
+    sendAIChatMessage();
+  }));
+}
+
+function renderChatBody(){
+  const body = document.getElementById('aiChatBody');
+  if(!body) return;
+  body.innerHTML = CHAT_HISTORY.map(m=> `<div class="ai-msg ${m.role==='user'?'user':'bot'}">${escapeHtml(m.text)}</div>`).join('');
+  body.scrollTop = body.scrollHeight;
+}
+
+function addChatMessage(role, text){
+  CHAT_HISTORY.push({ role, text, ts: nowISO() });
+  saveChatHistory();
+  renderChatBody();
+}
+
+function showTypingIndicator(show){
+  const body = document.getElementById('aiChatBody');
+  if(!body) return;
+  let el = document.getElementById('aiTypingIndicator');
+  if(show){
+    if(!el){
+      el = document.createElement('div');
+      el.className = 'ai-msg bot typing'; el.id = 'aiTypingIndicator';
+      el.innerHTML = '<span></span><span></span><span></span>';
+      body.appendChild(el);
+    }
+    body.scrollTop = body.scrollHeight;
+  } else if(el){ el.remove(); }
+}
+
+async function sendAIChatMessage(){
+  const input = document.getElementById('aiChatInput');
+  const text = input.value.trim();
+  if(!text) return;
+  input.value = '';
+  addChatMessage('user', text);
+  showTypingIndicator(true);
+
+  let reply;
+  try{
+    if(APP_SETTINGS.aiApiKey){
+      reply = await callClaudeAPI(text);
+    } else {
+      reply = analyzeQuery(text);
+    }
+  }catch(err){
+    console.warn('AI API gagal, memakai analisis lokal:', err);
+    reply = analyzeQuery(text) + '\n\n(Catatan: koneksi ke Claude API gagal, jawaban ini dihasilkan oleh analisis data lokal.)';
+  }
+  showTypingIndicator(false);
+  addChatMessage('bot', reply);
+}
+
+async function callClaudeAPI(userText){
+  const summary = buildDataSummaryForAI();
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'x-api-key': APP_SETTINGS.aiApiKey,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
+    body: JSON.stringify({
+      model: APP_SETTINGS.aiModel || 'claude-sonnet-5',
+      max_tokens: 700,
+      system: 'Anda adalah asisten analisis data untuk aplikasi tracking pengajuan kredit motor & mobil. Jawab singkat, jelas, dan dalam Bahasa Indonesia, berdasarkan ringkasan data yang diberikan. Jika data tidak cukup untuk menjawab, katakan dengan jujur.',
+      messages: [
+        { role:'user', content: `Ringkasan data saat ini:\n${summary}\n\nPertanyaan pengguna: ${userText}` }
+      ]
+    })
+  });
+  const data = await res.json();
+  if(data.error) throw new Error(data.error.message || 'API error');
+  const textBlocks = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text);
+  return textBlocks.join('\n') || 'Maaf, tidak ada respons dari model.';
+}
+
+function buildDataSummaryForAI(){
+  const total = RECORDS.length;
+  const byStatus = {}; STATUS_LIST.forEach(s=> byStatus[s] = RECORDS.filter(r=>r.status===s).length);
+  const byPosisi = {}; POSISI_LIST.forEach(p=> byPosisi[p] = RECORDS.filter(r=>r.posisi===p).length);
+  const overdue = computeOverdue();
+  const totalPinjaman = RECORDS.reduce((a,r)=>a+(r.pinjaman||0),0);
+  const cmoStats = CMO_LIST.map(c=>({ cmo:c, total: RECORDS.filter(r=>r.cmo===c).length, approved: RECORDS.filter(r=>r.cmo===c && r.status==='Approved').length }));
+  return JSON.stringify({ total, byStatus, byPosisi, totalPinjaman, overdueCount: overdue.length,
+    overdueNames: overdue.slice(0,10).map(o=>`${o.record.namaDebitur} (${o.record.posisi}, ${formatWorkDurasi(o.elapsedHours)})`),
+    cmoStats }, null, 0);
+}
+
+// Lightweight local NLU — pattern-matches common Indonesian questions to real computations on RECORDS
+function analyzeQuery(qRaw){
+  const q = qRaw.toLowerCase();
+  const overdue = computeOverdue();
+
+  if(/(tertunda|terlambat|overdue|perlu.*tindak|perlu.*perhatian)/.test(q)){
+    if(overdue.length === 0) return 'Saat ini tidak ada pengajuan yang tertunda melewati batas waktu normal. Semua berjalan lancar! ✅';
+    const top = overdue.slice(0,5).map(o=>`• ${o.record.namaDebitur} — tahap "${o.record.posisi}", sudah ${formatWorkDurasi(o.elapsedHours)} (batas ${formatWorkDurasi(o.thresholdHours)})`).join('\n');
+    return `Ada ${overdue.length} pengajuan yang melewati batas waktu di tahapnya:\n${top}${overdue.length>5?`\n...dan ${overdue.length-5} lainnya.`:''}`;
+  }
+
+  if(/(cmo).*(produktif|terbaik|tercepat|leaderboard|ranking|peringkat)/.test(q) || /siapa.*cmo/.test(q)){
+    const stats = computeCmoLeaderboard();
+    if(stats.length === 0) return 'Belum ada data CMO untuk dianalisis.';
+    const t = stats[0];
+    return `CMO paling produktif saat ini adalah ${t.cmo} dengan ${t.total} pengajuan ditangani dan ${t.approved} disetujui (tingkat approval ${t.approvalRate}%). Berikut 3 teratas:\n${stats.slice(0,3).map((s,i)=>`${i+1}. ${s.cmo} — ${s.total} pengajuan, ${s.approvalRate}% approval`).join('\n')}`;
+  }
+
+  if(/(total|jumlah).*(pinjaman|nilai).*(aktif|proses|pipeline)|pipeline/.test(q)){
+    const kpi = computeKPIs();
+    return `Total nilai pinjaman yang masih berjalan (status Proses/Pending) saat ini adalah ${formatRupiah(kpi.pipelineValue)}, dari ${kpi.pipelineCount} pengajuan aktif.`;
+  }
+
+  if(/(approval|persetujuan).*(rate|tingkat|persentase)|tingkat.*disetujui/.test(q)){
+    const kpi = computeKPIs();
+    return `Tingkat persetujuan (approval rate) saat ini adalah ${kpi.approvalRate}% dari total pengajuan yang sudah diputuskan (Approved vs Reject/Batal).`;
+  }
+
+  if(/(berapa|jumlah|total).*(pengajuan|data)/.test(q) && !/pinjaman/.test(q)){
+    return `Total pengajuan yang tercatat saat ini ada ${RECORDS.length} data.`;
+  }
+
+  const statusMatch = STATUS_LIST.find(s=> q.includes(s.toLowerCase()));
+  if(statusMatch){
+    const list = RECORDS.filter(r=>r.status===statusMatch);
+    return `Ada ${list.length} pengajuan dengan status "${statusMatch}"${list.length? ', di antaranya: ' + list.slice(0,5).map(r=>r.namaDebitur).join(', ') + (list.length>5?', dan lainnya.':'.') : '.'}`;
+  }
+  const posisiMatch = POSISI_LIST.find(p=> q.includes(p.toLowerCase()));
+  if(posisiMatch){
+    const list = RECORDS.filter(r=>r.posisi===posisiMatch);
+    return `Ada ${list.length} pengajuan yang sedang di tahap "${posisiMatch}"${list.length? ', di antaranya: ' + list.slice(0,5).map(r=>r.namaDebitur).join(', ') + (list.length>5?', dan lainnya.':'.') : '.'}`;
+  }
+
+  // Search by debtor name
+  const found = RECORDS.filter(r=> r.namaDebitur && q.includes(r.namaDebitur.toLowerCase().split(' ')[0]) && r.namaDebitur.toLowerCase().split(' ')[0].length > 2);
+  if(found.length > 0){
+    const r = found[0];
+    return `Data ${r.namaDebitur}: unit ${r.unit} ${r.merek} ${r.tahun}, pinjaman ${formatRupiah(r.pinjaman)}, CMO ${r.cmo}, posisi "${r.posisi}", status "${r.status}", sudah ${formatWorkDurasi(workingHoursSince(r.stageEnteredAt))} di tahap ini berdasarkan jam kerja ${WORKDAY_LABEL}.`;
+  }
+
+  if(/(bantuan|help|apa yang bisa)/.test(q)){
+    return 'Saya bisa membantu Anda dengan hal-hal berikut:\n• Cek pengajuan yang tertunda/terlambat\n• Ranking performa CMO\n• Total nilai pinjaman aktif (pipeline)\n• Tingkat approval\n• Jumlah pengajuan per status/posisi\n• Cari data berdasarkan nama debitur\n\nSilakan tanya dengan bahasa natural, misalnya "ada berapa yang pending?"';
+  }
+
+  return `Saya belum bisa memahami pertanyaan itu secara spesifik dari data yang ada. Coba tanyakan tentang: jumlah pengajuan, status/posisi tertentu, performa CMO, nilai pipeline, atau nama debitur. Ketik "bantuan" untuk melihat contoh pertanyaan.`;
+}
+
+/* =======================================================================
+   ANALYTICS / KPI COMPUTATIONS
+======================================================================= */
+function computeKPIs(){
+  const total = RECORDS.length;
+  const approved = RECORDS.filter(r=>r.status==='Approved');
+  const rejectedOrCancel = RECORDS.filter(r=>['Reject Slik','Reject Non Slik','Batal'].includes(r.status));
+  const decided = approved.length + rejectedOrCancel.length;
+  const approvalRate = decided > 0 ? Math.round((approved.length/decided)*1000)/10 : 0;
+
+  const active = RECORDS.filter(r=>['Proses','Pending'].includes(r.status));
+  const pipelineValue = active.reduce((a,r)=>a+(r.pinjaman||0),0);
+
+  const overdue = computeOverdue();
+  const slaCompliance = active.length > 0 ? Math.round(((active.length - overdue.length)/active.length)*1000)/10 : 100;
+
+  let avgApproveHours = 0;
+  if(approved.length){
+    const durations = approved.map(r=>{
+      const created = new Date(r.createdAt).getTime();
+      const lastApprovedHistory = (r.history||[]).slice().reverse().find(h=>h.status==='Approved');
+      const approvedAt = lastApprovedHistory ? new Date(lastApprovedHistory.timestamp).getTime() : Date.now();
+      return Math.max(0,(approvedAt-created)/36e5);
+    });
+    avgApproveHours = durations.reduce((a,b)=>a+b,0)/durations.length;
+  }
+
+  return {
+    total, approvalRate, pipelineValue, pipelineCount: active.length,
+    slaCompliance, avgApproveHours, overdueCount: overdue.length
+  };
+}
+
+function computeCmoLeaderboard(){
+  return CMO_LIST.map(c=>{
+    const list = RECORDS.filter(r=>r.cmo===c);
+    const approved = list.filter(r=>r.status==='Approved').length;
+    const decided = list.filter(r=>['Approved','Reject Slik','Reject Non Slik','Batal'].includes(r.status)).length;
+    const approvalRate = decided > 0 ? Math.round((approved/decided)*1000)/10 : 0;
+    const pinjamanTotal = list.reduce((a,r)=>a+(r.pinjaman||0),0);
+    return { cmo:c, total:list.length, approved, approvalRate, pinjamanTotal };
+  }).filter(s=>s.total>0).sort((a,b)=> b.total - a.total || b.approvalRate - a.approvalRate);
+}
+
+/* =======================================================================
+   RENDERING — LAYOUT SWITCH
+======================================================================= */
+function setView(view){
+  currentView = view;
+  document.querySelectorAll('.nav-btn').forEach(b=> b.classList.toggle('active', b.dataset.view===view));
+  closeMobileSidebar();
+  render();
+}
+
+function render(){
+  const main = document.getElementById('main');
+  if(currentView === 'dashboard'){
+    main.innerHTML = dashboardTemplate();
+    bindDashboardEvents();
+    renderAIPanel();
+    renderCards();
+    renderTable();
+    if(!isDataLoading && Object.keys(aiMessages).length === 0) refreshReminders();
+  } else if(currentView === 'analytics'){
+    main.innerHTML = analyticsTemplate();
+    bindAnalyticsEvents();
+  } else {
+    main.innerHTML = formTemplate();
+    bindFormEvents();
+  }
+}
+
+/* ---------------- ANALYTICS VIEW ---------------- */
+function analyticsTemplate(){
+  const kpi = computeKPIs();
+  const leaderboard = computeCmoLeaderboard();
+  const maxPosisi = Math.max(1, ...POSISI_LIST.map(p=>RECORDS.filter(r=>r.posisi===p).length));
+  const maxCmoTotal = Math.max(1, ...leaderboard.map(s=>s.total));
+  const statusTotal = Math.max(1, RECORDS.length);
+
+  return `
+    <div class="topbar">
+      <div class="topbar-left">
+        <button class="btn-mobile-menu" id="btnMobileToggleAn" title="Buka Menu">&#9776;</button>
+        <div>
+          <h1>Analitik &amp; Insight</h1>
+          <div class="sub">Ringkasan performa, funnel proses, dan produktivitas CMO</div>
+        </div>
+      </div>
+      <div class="topbar-tools">
+        <button class="btn btn-ghost btn-sm" id="btnRefreshAnalytics">&#8635; Segarkan</button>
+        <div class="notif-wrap">
+          <button class="notif-bell" id="notifBellBtn" title="Notifikasi">&#128276;<span class="badge" id="notifBadge" style="display:none;">0</span></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-ic">💰</div>
+        <div class="kpi-val">${formatRupiah(kpi.pipelineValue)}</div>
+        <div class="kpi-lbl">Nilai Pipeline Aktif (${kpi.pipelineCount} pengajuan)</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-ic">✅</div>
+        <div class="kpi-val">${kpi.approvalRate}%</div>
+        <div class="kpi-lbl">Tingkat Persetujuan (Approval Rate)</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-ic">⏱️</div>
+        <div class="kpi-val">${kpi.avgApproveHours ? formatDurasi(kpi.avgApproveHours) : '-'}</div>
+        <div class="kpi-lbl">Rata-rata Waktu s/d Approved</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-ic">🛡️</div>
+        <div class="kpi-val">${kpi.slaCompliance}%</div>
+        <div class="kpi-lbl">Kepatuhan SLA (tidak overdue)</div>
+        <div class="kpi-trend ${kpi.overdueCount>0?'bad':'good'}">${kpi.overdueCount>0? kpi.overdueCount+' pengajuan overdue' : 'Semua sesuai batas waktu'}</div>
+      </div>
+    </div>
+
+    <div class="panel-box">
+      <h3>Funnel Posisi Pengajuan</h3>
+      ${POSISI_LIST.map(p=>{
+        const count = RECORDS.filter(r=>r.posisi===p).length;
+        const pct = Math.round((count/maxPosisi)*100);
+        return `
+        <div class="funnel-row">
+          <div class="funnel-lbl">${p}</div>
+          <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:${Math.max(pct,count?6:0)}%; background:var(${POSISI_COLOR[p]})"><span>${count>0?count:''}</span></div></div>
+          <div class="funnel-count">${count}</div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div class="panel-box">
+      <h3>Distribusi Status</h3>
+      <div class="donut-wrap">
+        <div class="donut-legend">
+          ${STATUS_LIST.map(s=>{
+            const count = RECORDS.filter(r=>r.status===s).length;
+            const pct = Math.round((count/statusTotal)*100);
+            return `<div class="donut-legend-item"><span class="donut-legend-dot" style="background:var(${STATUS_COLOR[s]})"></span>${s}: <strong>${count}</strong> (${pct}%)</div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-box">
+      <h3>Papan Peringkat CMO</h3>
+      ${leaderboard.length === 0 ? '<div class="ai-empty" style="color:var(--text-dim);">Belum ada data untuk dianalisis.</div>' : `
+      <table class="leader-table">
+        <thead><tr><th>#</th><th>CMO</th><th>Total Ditangani</th><th>Approved</th><th>Approval Rate</th><th>Total Pinjaman</th></tr></thead>
+        <tbody>
+          ${leaderboard.map((s,i)=>`
+            <tr>
+              <td><span class="leader-rank ${i===0?'top1':''}">${i+1}</span></td>
+              <td><strong>${escapeHtml(s.cmo)}</strong></td>
+              <td><span class="mini-bar-track"><span class="mini-bar-fill" style="width:${Math.round((s.total/maxCmoTotal)*100)}%"></span></span>${s.total}</td>
+              <td>${s.approved}</td>
+              <td>${s.approvalRate}%</td>
+              <td class="money">${formatRupiah(s.pinjamanTotal)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>`}
+    </div>
+  `;
+}
+
+function bindAnalyticsEvents(){
+  const btnMobile = document.getElementById('btnMobileToggleAn');
+  if(btnMobile) btnMobile.addEventListener('click', openMobileSidebar);
+  const btnRefresh = document.getElementById('btnRefreshAnalytics');
+  if(btnRefresh) btnRefresh.addEventListener('click', ()=>{ render(); showToast('Analitik diperbarui.'); });
+  bindNotifBellEvents();
+}
+
+/* ---------------- DASHBOARD ---------------- */
+function dashboardTemplate(){
+  const pending = pendingSyncCount();
+  const statusBadge = pending > 0
+    ? `<span class="status-badge-net offline">● ${pending} perubahan menunggu sync</span>`
+    : (STORAGE_MODE === 'online' 
+      ? `<span class="status-badge-net online">● Tersinkron (Google Sheets)</span>`
+      : (STORAGE_MODE === 'local' ? `<span class="status-badge-net offline">● Mode Lokal / Offline</span>` : `<span class="status-badge-net error">● Menyinkronkan...</span>`));
+
+  return `
+    <div class="topbar">
+      <div class="topbar-left">
+        <button class="btn-mobile-menu" id="btnMobileToggle" title="Buka Menu">&#9776;</button>
+        <div>
+          <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <h1>Dashboard Pengajuan</h1>
+            ${statusBadge}
+          </div>
+          <div class="sub">Ringkasan seluruh pengajuan kredit motor &amp; mobil</div>
+        </div>
+      </div>
+      <div class="topbar-tools">
+        <button class="btn btn-ghost btn-sm" id="btnBackupJson" title="Simpan file cadangan database">💾 Backup Data</button>
+        <label class="btn btn-ghost btn-sm" style="margin:0;" title="Pulihkan data dari file backup JSON">
+          📂 Restore <input type="file" id="inpRestoreJson" accept=".json" style="display:none;">
+        </label>
+        <button class="btn btn-ghost btn-sm" id="btnSyncPending" title="Coba sinkronkan perubahan lokal yang tertunda">🔄 Sync Pending</button>
+        <button class="btn btn-ghost btn-sm" id="btnRefreshAI">&#8635; Refresh Reminder</button>
+        <button class="btn btn-brass btn-sm" id="btnExport">&#8681; Export Excel</button>
+        <div class="notif-wrap">
+          <button class="notif-bell" id="notifBellBtn" title="Notifikasi">&#128276;<span class="badge" id="notifBadge" style="display:none;">0</span></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="ai-panel" id="aiPanel"></div>
+
+    <div class="filter-flag" id="cardsFilterFlag" style="display:none;">
+      <span>&#9878; Kartu &amp; total di bawah mengikuti filter tabel yang aktif</span>
+      <button class="ai-mini-btn" id="btnResetFilters" style="border-color:var(--brass-dark); color:var(--brass-dark);">Reset Filter</button>
+    </div>
+
+    <div class="section-label">Jenis Unit</div>
+    <div class="cards-grid" id="cardsUnit"></div>
+
+    <div class="section-label">Posisi Aktif</div>
+    <div class="cards-grid" id="cardsPosisi"></div>
+
+    <div class="section-label">Status</div>
+    <div class="cards-grid" id="cardsStatus"></div>
+
+    <div class="section-label">Data Pengajuan</div>
+    <div class="toolbar">
+      <input type="text" id="fltSearch" value="${escapeHtml(filters.q)}" placeholder="Cari nama debitur, pasangan, merek, sumber order...">
+      <select id="fltUnit"><option value="">Semua Unit</option>${UNIT_LIST.map(u=>`<option value="${u}" ${filters.unit===u?'selected':''}>${u}</option>`).join('')}</select>
+      <select id="fltCmo"><option value="">Semua CMO</option>${CMO_LIST.map(c=>`<option value="${c}" ${filters.cmo===c?'selected':''}>${c}</option>`).join('')}</select>
+      <select id="fltPosisi"><option value="">Semua Posisi</option>${POSISI_LIST.map(p=>`<option value="${p}" ${filters.posisi===p?'selected':''}>${p}</option>`).join('')}</select>
+      <select id="fltStatus"><option value="">Semua Status</option>${STATUS_LIST.map(s=>`<option value="${s}" ${filters.status===s?'selected':''}>${s}</option>`).join('')}</select>
+      <select id="fltSumberOrder"><option value="">Semua Sumber Order</option>${getUniqueSumberOrderList().map(s=>`<option value="${escapeHtml(s)}" ${filters.sumberOrder===s?'selected':''}>${escapeHtml(s)}</option>`).join('')}</select>
+      <select id="fltPeriode">
+        <option value="" ${filters.periode===''?'selected':''}>Semua Periode</option>
+        <option value="today" ${filters.periode==='today'?'selected':''}>Hari Ini</option>
+        <option value="week" ${filters.periode==='week'?'selected':''}>Minggu Ini</option>
+        <option value="month" ${filters.periode==='month'?'selected':''}>Bulan Ini</option>
+        <option value="lastmonth" ${filters.periode==='lastmonth'?'selected':''}>Bulan Lalu</option>
+        <option value="year" ${filters.periode==='year'?'selected':''}>Tahun Ini</option>
+        <option value="custom" ${filters.periode==='custom'?'selected':''}>Kustom...</option>
+      </select>
+      <div id="fltCustomRange" style="display:${filters.periode==='custom'?'inline-flex':'none'}; gap:8px; align-items:center;">
+        <input type="date" id="fltDateFrom" value="${filters.dateFrom}">
+        <span style="color:var(--text-dim); font-size:12.5px;">s/d</span>
+        <input type="date" id="fltDateTo" value="${filters.dateTo}">
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th data-k="tanggalInput" class="${sortState.key==='tanggalInput'?'active-sort':''}">Tgl Input <span class="sort-arrow">${sortState.key==='tanggalInput'?(sortState.dir==='asc'?'▲':'▼'):'▲'}</span></th>
+          <th data-k="tanggalUpdate" class="${sortState.key==='tanggalUpdate'?'active-sort':''}">Tgl Update <span class="sort-arrow">${sortState.key==='tanggalUpdate'?(sortState.dir==='asc'?'▲':'▼'):'▲'}</span></th>
+          <th data-k="namaDebitur" class="${sortState.key==='namaDebitur'?'active-sort':''}">Nama Debitur <span class="sort-arrow">${sortState.key==='namaDebitur'?(sortState.dir==='asc'?'▲':'▼'):'▲'}</span></th>
+          <th data-k="namaPasangan">Nama Pasangan</th>
+          <th data-k="noHp">No HP</th>
+          <th data-k="newRo">New/RO</th>
+          <th data-k="unit">Unit</th>
+          <th data-k="merek">Merek</th>
+          <th data-k="tahun">Tahun</th>
+          <th data-k="pinjaman" class="${sortState.key==='pinjaman'?'active-sort':''}">Pinjaman <span class="sort-arrow">${sortState.key==='pinjaman'?(sortState.dir==='asc'?'▲':'▼'):'▲'}</span></th>
+          <th data-k="cmo">CMO</th>
+          <th data-k="sumberOrder">Sumber Order</th>
+          <th data-k="posisi">Posisi</th>
+          <th data-k="status">Status</th>
+          <th data-k="keterangan">Keterangan</th>
+          <th>Aksi</th>
+        </tr></thead>
+        <tbody id="tblBody">
+          ${isDataLoading ? `<tr><td colspan="14" style="text-align:center; padding:40px;"><div class="spinner" style="border-top-color:var(--ink); border-color:var(--line);"></div><div style="margin-top:10px; color:var(--text-dim);">Memuat data...</div></td></tr>` : ''}
+        </tbody>
+      </table>
+    </div>
+    <div class="mobile-record-list" id="mobileRecordList">
+      ${isDataLoading ? `<div class="mobile-record-card" style="text-align:center;"><div class="spinner" style="border-top-color:var(--ink); border-color:var(--line);"></div><div style="margin-top:10px; color:var(--text-dim);">Memuat data...</div></div>` : ''}
+    </div>
+    <div class="pagination" id="paginationBar"></div>
+  `;
+}
+
+function bindDashboardEvents(){
+  const btnMobile = document.getElementById('btnMobileToggle');
+  if(btnMobile) btnMobile.addEventListener('click', openMobileSidebar);
+
+  document.getElementById('btnExport').addEventListener('click', exportExcel);
+  document.getElementById('btnRefreshAI').addEventListener('click', refreshReminders);
+  const btnSyncPending = document.getElementById('btnSyncPending');
+  if(btnSyncPending) btnSyncPending.addEventListener('click', async ()=>{
+    if(STORAGE_MODE !== 'online'){
+      showToast('Belum online ke Google Sheets. Perubahan tetap aman di perangkat ini.');
+      return;
+    }
+    const result = await processSyncQueue();
+    if(result.processed === 0) showToast(pendingSyncCount() ? 'Sinkronisasi belum berhasil. Coba lagi nanti.' : 'Tidak ada perubahan tertunda.');
+    render();
+  });
+  bindNotifBellEvents();
+  
+  const btnBackup = document.getElementById('btnBackupJson');
+  if(btnBackup) btnBackup.addEventListener('click', backupDatabaseJson);
+
+  const inpRestore = document.getElementById('inpRestoreJson');
+  if(inpRestore) inpRestore.addEventListener('change', restoreDatabaseJson);
+
+  let searchDebounce = null;
+  document.getElementById('fltSearch').addEventListener('input', e=>{
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(()=>{ filters.q = e.target.value.toLowerCase(); pagination.page = 1; renderTable(); renderCards(); }, 220);
+  });
+  document.getElementById('fltUnit').addEventListener('change', e=>{ filters.unit = e.target.value; pagination.page = 1; renderTable(); renderCards(); });
+  document.getElementById('fltCmo').addEventListener('change', e=>{ filters.cmo = e.target.value; pagination.page = 1; renderTable(); renderCards(); });
+  document.getElementById('fltPosisi').addEventListener('change', e=>{ filters.posisi = e.target.value; pagination.page = 1; renderTable(); renderCards(); });
+  document.getElementById('fltStatus').addEventListener('change', e=>{ filters.status = e.target.value; pagination.page = 1; renderTable(); renderCards(); });
+  document.getElementById('fltSumberOrder').addEventListener('change', e=>{ filters.sumberOrder = e.target.value; pagination.page = 1; renderTable(); renderCards(); });
+  document.getElementById('fltPeriode').addEventListener('change', e=>{
+    filters.periode = e.target.value;
+    const rangeEl = document.getElementById('fltCustomRange');
+    if(filters.periode === 'custom'){
+      if(rangeEl) rangeEl.style.display = 'inline-flex';
+    } else {
+      filters.dateFrom = ''; filters.dateTo = '';
+      if(rangeEl) rangeEl.style.display = 'none';
+    }
+    pagination.page = 1; renderTable(); renderCards();
+  });
+  const fltDateFrom = document.getElementById('fltDateFrom');
+  const fltDateTo = document.getElementById('fltDateTo');
+  if(fltDateFrom) fltDateFrom.addEventListener('change', e=>{ filters.dateFrom = e.target.value; pagination.page = 1; renderTable(); renderCards(); });
+  if(fltDateTo) fltDateTo.addEventListener('change', e=>{ filters.dateTo = e.target.value; pagination.page = 1; renderTable(); renderCards(); });
+  
+  const btnReset = document.getElementById('btnResetFilters');
+  if(btnReset){
+    btnReset.addEventListener('click', ()=>{
+      filters = { q:'', unit:'', cmo:'', posisi:'', status:'', periode:'', dateFrom:'', dateTo:'', sumberOrder:'' };
+      document.getElementById('fltSearch').value = '';
+      document.getElementById('fltUnit').value = '';
+      document.getElementById('fltCmo').value = '';
+      document.getElementById('fltPosisi').value = '';
+      document.getElementById('fltStatus').value = '';
+      const fltSumberOrderEl = document.getElementById('fltSumberOrder');
+      if(fltSumberOrderEl) fltSumberOrderEl.value = '';
+      const fltPeriodeEl = document.getElementById('fltPeriode');
+      if(fltPeriodeEl) fltPeriodeEl.value = '';
+      const fltRangeEl = document.getElementById('fltCustomRange');
+      if(fltRangeEl) fltRangeEl.style.display = 'none';
+      const fdF = document.getElementById('fltDateFrom'); if(fdF) fdF.value = '';
+      const fdT = document.getElementById('fltDateTo'); if(fdT) fdT.value = '';
+      pagination.page = 1;
+      renderTable();
+      renderCards();
+    });
+  }
+
+  document.querySelectorAll('thead th[data-k]').forEach(th=>{
+    th.addEventListener('click', ()=>{
+      const k = th.dataset.k;
+      if(sortState.key === k) sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+      else { sortState.key = k; sortState.dir = 'asc'; }
+      pagination.page = 1;
+      render();
+    });
+  });
+}
+
+function renderAIPanel(){
+  const el = document.getElementById('aiPanel');
+  if(!el) return;
+  const overdue = computeOverdue();
+  let body = '';
+  if(aiLoading){
+    body = `<div class="ai-empty">Menganalisis durasi tahap pengajuan...</div>`;
+  } else if(overdue.length === 0){
+    body = `<div class="ai-empty">Semua pengajuan berjalan sesuai batas waktu. Tidak ada yang tertunda berlarut saat ini.</div>`;
+  } else {
+    body = overdue.map(it=>{
+      const r = it.record;
+      const msg = aiMessages[r.id] ? aiMessages[r.id].message : localFallbackMessage(it);
+      return `
+        <div class="ai-item">
+          <div class="ai-item-head">
+            <div class="ai-item-name">${escapeHtml(r.namaDebitur)} &middot; ${escapeHtml(r.unit)} ${escapeHtml(r.merek)}</div>
+            <div class="ai-item-time">${escapeHtml(r.posisi)} &middot; ${formatWorkDurasi(it.elapsedHours)}</div>
+          </div>
+          <div class="ai-item-msg">${escapeHtml(msg)}</div>
+          <div class="ai-item-actions">
+            <button class="ai-mini-btn primary" data-edit="${r.id}">Update Posisi</button>
+            <button class="ai-mini-btn" data-snooze="${r.id}">Konfirmasi (SLA direset)</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+  el.innerHTML = `
+    <div class="ai-panel-head">
+      <div class="ai-title"><span class="ai-dot"></span> Asisten Reminder Tracking</div>
+      <div style="font-size:11.5px; color:#9FB0CB;">${overdue.length} pengajuan perlu perhatian · ${WORKDAY_LABEL}</div>
+    </div>
+    <div class="ai-body">${body}</div>
+  `;
+  el.querySelectorAll('[data-edit]').forEach(b=> b.addEventListener('click', ()=> openEditModal(b.dataset.edit)));
+  el.querySelectorAll('[data-snooze]').forEach(b=> b.addEventListener('click', ()=> confirmReminder(b.dataset.snooze)));
+}
+
+function isFilterActive(){
+  return !!(filters.q || filters.unit || filters.cmo || filters.posisi || filters.status || filters.periode || filters.sumberOrder);
+}
+
+// Menghitung rentang tanggal (YYYY-MM-DD, inklusif) berdasarkan pilihan periode cepat.
+function getPeriodeRange(){
+  const { periode, dateFrom, dateTo } = filters;
+  if(!periode) return null;
+  const pad = n => String(n).padStart(2,'0');
+  const toKey = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const now = new Date();
+  if(periode === 'custom'){
+    if(!dateFrom && !dateTo) return null;
+    return { from: dateFrom || '0000-01-01', to: dateTo || '9999-12-31' };
+  }
+  if(periode === 'today'){
+    const k = toKey(now); return { from:k, to:k };
+  }
+  if(periode === 'week'){
+    const day = (now.getDay() + 6) % 7; // Senin = 0
+    const start = new Date(now); start.setDate(now.getDate() - day);
+    const end = new Date(start); end.setDate(start.getDate() + 6);
+    return { from: toKey(start), to: toKey(end) };
+  }
+  if(periode === 'month'){
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return { from: toKey(start), to: toKey(end) };
+  }
+  if(periode === 'lastmonth'){
+    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const end = new Date(now.getFullYear(), now.getMonth(), 0);
+    return { from: toKey(start), to: toKey(end) };
+  }
+  if(periode === 'year'){
+    return { from: `${now.getFullYear()}-01-01`, to: `${now.getFullYear()}-12-31` };
+  }
+  return null;
+}
+
+function renderCards(){
+  const unitEl = document.getElementById('cardsUnit');
+  const posEl = document.getElementById('cardsPosisi');
+  const statEl = document.getElementById('cardsStatus');
+  const flagEl = document.getElementById('cardsFilterFlag');
+  if(!posEl || !statEl) return;
+
+  const source = getFilteredSortedRecords();
+  const filterOn = isFilterActive();
+
+  const unitCounts = {}; UNIT_LIST.forEach(u=>unitCounts[u]={count:0, pinjaman:0});
+  const posCounts = {}; POSISI_LIST.forEach(p=>posCounts[p]=0);
+  const statCounts = {}; STATUS_LIST.forEach(s=>statCounts[s]=0);
+  let totalPinjaman = 0;
+  source.forEach(r=>{
+    if(unitCounts[r.unit]){ unitCounts[r.unit].count++; unitCounts[r.unit].pinjaman += (r.pinjaman||0); }
+    if(posCounts[r.posisi] !== undefined) posCounts[r.posisi]++;
+    if(statCounts[r.status] !== undefined) statCounts[r.status]++;
+    totalPinjaman += (r.pinjaman||0);
+  });
+
+  if(unitEl){
+    unitEl.innerHTML = UNIT_LIST.map(u=>`
+      <div class="stat-card" style="--accent:var(${UNIT_COLOR[u]})">
+        <div class="num">${unitCounts[u].count}</div>
+        <div class="lbl">${u === 'Motor' ? '🏍️ ' : '🚗 '}${u}</div>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--text-dim); margin-top:6px;">${formatRupiah(unitCounts[u].pinjaman)}</div>
+      </div>
+    `).join('');
+  }
+
+  posEl.innerHTML = POSISI_LIST.map(p=>`
+    <div class="stat-card" style="--accent:var(${POSISI_COLOR[p]})">
+      <div class="num">${posCounts[p]}</div>
+      <div class="lbl">${p}</div>
+    </div>
+  `).join('') + `
+    <div class="stat-card total">
+      <div class="num">${source.length}</div>
+      <div class="lbl">${filterOn ? 'Total (Terfilter)' : 'Total Keseluruhan'}</div>
+      <div class="sub-num">${formatRupiah(totalPinjaman)}</div>
+    </div>
+  `;
+
+  statEl.innerHTML = STATUS_LIST.map(s=>`
+    <div class="stat-card" style="--accent:var(${STATUS_COLOR[s]})">
+      <div class="num">${statCounts[s]}</div>
+      <div class="lbl">${s}</div>
+    </div>
+  `).join('');
+
+  if(flagEl){
+    flagEl.style.display = filterOn ? 'inline-flex' : 'none';
+  }
+}
+
+// Sumber Order adalah field teks bebas (bukan daftar tetap seperti Unit/CMO), jadi daftar filternya
+// diambil otomatis dari nilai unik yang ada di data — tersusun rapi alfabetis.
+function getUniqueSumberOrderList(){
+  const set = new Set();
+  RECORDS.forEach(r=>{ const v = normalizeText(r.sumberOrder||''); if(v) set.add(v); });
+  return Array.from(set).sort((a,b)=>a.localeCompare(b, 'id'));
+}
+
+function getFilteredSortedRecords(){
+  const periodeRange = getPeriodeRange();
+  let list = RECORDS.filter(r=>{
+    if(filters.unit && r.unit !== filters.unit) return false;
+    if(filters.cmo && r.cmo !== filters.cmo) return false;
+    if(filters.posisi && r.posisi !== filters.posisi) return false;
+    if(filters.status && r.status !== filters.status) return false;
+    if(filters.sumberOrder && normalizeText(r.sumberOrder||'') !== filters.sumberOrder) return false;
+    if(periodeRange){
+      const tgl = r.tanggalInput || '';
+      if(!tgl || tgl < periodeRange.from || tgl > periodeRange.to) return false;
+    }
+    if(filters.q){
+      const hay = [r.namaDebitur, r.namaPasangan, r.noHp, r.merek, r.sumberOrder].join(' ').toLowerCase();
+      if(!hay.includes(filters.q)) return false;
+    }
+    return true;
+  });
+  const { key, dir } = sortState;
+  list.sort((a,b)=>{
+    let av = a[key], bv = b[key];
+    if(key === 'pinjaman'){ av = a.pinjaman || 0; bv = b.pinjaman || 0; }
+    if(av === undefined) av = '';
+    if(bv === undefined) bv = '';
+    if(av < bv) return dir==='asc' ? -1 : 1;
+    if(av > bv) return dir==='asc' ? 1 : -1;
+    return 0;
+  });
+  return list;
+}
+
+function bindRecordActionButtons(container){
+  if(!container) return;
+  container.querySelectorAll('[data-detail]').forEach(b=> b.addEventListener('click', ()=> openDetailModal(b.dataset.detail)));
+  container.querySelectorAll('[data-edit2]').forEach(b=> b.addEventListener('click', ()=> openEditModal(b.dataset.edit2)));
+  container.querySelectorAll('[data-del]').forEach(b=> b.addEventListener('click', ()=> openDeleteModal(b.dataset.del)));
+}
+function mobileRecordCard(r){
+  return `
+    <div class="mobile-record-card">
+      <div class="mobile-record-head">
+        <div class="mobile-record-name">${escapeHtml(r.namaDebitur)}</div>
+        <div class="mobile-record-date">${formatTanggalDDMMYY(r.tanggalInput)}</div>
+      </div>
+      <div class="mobile-record-meta">
+        <div><span class="k">Tgl Update</span>${formatTanggalDDMMYY(r.tanggalUpdate)}</div>
+        <div><span class="k">No HP</span>${escapeHtml(r.noHp) || '-'}</div>
+        <div><span class="k">New/RO</span>${escapeHtml(r.newRo) || '-'}</div>
+        <div><span class="k">Unit</span>${escapeHtml(r.unit)} ${escapeHtml(r.merek)} ${escapeHtml(r.tahun)}</div>
+        <div><span class="k">Pinjaman</span><span class="money">${formatRupiah(r.pinjaman)}</span></div>
+        <div><span class="k">CMO</span>${escapeHtml(r.cmo)}</div>
+        <div><span class="k">Sumber</span>${escapeHtml(r.sumberOrder) || '-'}</div>
+      </div>
+      <div class="mobile-record-tags">
+        <span class="stamp" style="color:var(${POSISI_COLOR[r.posisi] || '--ink'})">${escapeHtml(r.posisi)}</span>${!POSISI_LIST.includes(r.posisi) ? ' ⚠️' : ''}
+        <span class="stamp" style="color:var(${STATUS_COLOR[r.status] || '--ink'})">${escapeHtml(r.status)}</span>${!STATUS_LIST.includes(r.status) ? ' ⚠️' : ''}
+      </div>
+      ${r.keterangan ? `<div class="mobile-record-note">${escapeHtml(r.keterangan)}</div>` : ''}
+      <div class="mobile-record-actions">
+        <button class="btn btn-ghost btn-sm" data-detail="${r.id}">Detail</button>
+        <button class="btn btn-brass btn-sm" data-edit2="${r.id}">Update</button>
+        <button class="btn btn-danger btn-sm" data-del="${r.id}">Hapus</button>
+      </div>
+    </div>`;
+}
+function renderMobileRecords(list){
+  const wrap = document.getElementById('mobileRecordList');
+  if(!wrap) return;
+  wrap.innerHTML = list.map(mobileRecordCard).join('');
+  bindRecordActionButtons(wrap);
+}
+
+function renderTable(){
+  const tbody = document.getElementById('tblBody');
+  const mobileWrap = document.getElementById('mobileRecordList');
+  if(!tbody || isDataLoading) return;
+  const fullList = getFilteredSortedRecords();
+  if(fullList.length === 0){
+    tbody.innerHTML = `
+      <tr class="empty-row">
+        <td colspan="14">
+          <div style="padding:20px 0;">
+            <p>Belum ada data pengajuan kredit.</p>
+            <button class="btn btn-brass btn-sm" id="btnLoadDemo" style="margin-top:10px;">💡 Muat Data Demo (Contoh)</button>
+          </div>
+        </td>
+      </tr>`;
+    if(mobileWrap){
+      mobileWrap.innerHTML = `<div class="mobile-record-card" style="text-align:center; color:var(--text-dim);"><p>Belum ada data pengajuan kredit.</p><button class="btn btn-brass btn-sm" id="btnLoadDemoMobile" style="margin-top:8px;">💡 Muat Data Demo</button></div>`;
+    }
+    const btnDemo = document.getElementById('btnLoadDemo');
+    if(btnDemo) btnDemo.addEventListener('click', loadDemoData);
+    const btnDemoMobile = document.getElementById('btnLoadDemoMobile');
+    if(btnDemoMobile) btnDemoMobile.addEventListener('click', loadDemoData);
+    const pagBar = document.getElementById('paginationBar');
+    if(pagBar) pagBar.innerHTML = '';
+    return;
+  }
+
+  const totalPages = Math.max(1, Math.ceil(fullList.length / pagination.pageSize));
+  if(pagination.page > totalPages) pagination.page = totalPages;
+  const startIdx = (pagination.page - 1) * pagination.pageSize;
+  const list = fullList.slice(startIdx, startIdx + pagination.pageSize);
+
+  renderPaginationBar(fullList.length, totalPages, startIdx, list.length);
+
+  tbody.innerHTML = list.map(r=>`
+    <tr>
+      <td>${formatTanggalDDMMYY(r.tanggalInput)}</td>
+      <td>${formatTanggalDDMMYY(r.tanggalUpdate)}</td>
+      <td><strong>${escapeHtml(r.namaDebitur)}</strong></td>
+      <td>${escapeHtml(r.namaPasangan) || '-'}</td>
+      <td class="mono">${escapeHtml(r.noHp) || '-'}</td>
+      <td>${escapeHtml(r.newRo) || '-'}</td>
+      <td>${escapeHtml(r.unit)}</td>
+      <td>${escapeHtml(r.merek)}</td>
+      <td>${escapeHtml(r.tahun)}</td>
+      <td class="money">${formatRupiah(r.pinjaman)}</td>
+      <td>${escapeHtml(r.cmo)}</td>
+      <td>${escapeHtml(r.sumberOrder)}</td>
+      <td><span class="stamp" style="color:var(${POSISI_COLOR[r.posisi] || '--ink'})">${escapeHtml(r.posisi)}</span>${!POSISI_LIST.includes(r.posisi) ? ' <span title="Posisi tidak dikenali sistem — reminder tidak akurat">⚠️</span>' : ''}</td>
+      <td><span class="stamp" style="color:var(${STATUS_COLOR[r.status] || '--ink'})">${escapeHtml(r.status)}</span>${!STATUS_LIST.includes(r.status) ? ' <span title="Status tidak dikenali sistem — reminder tidak akan berhenti otomatis">⚠️</span>' : ''}</td>
+      <td style="max-width:220px; white-space:normal; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(r.keterangan||'')}">
+        ${r.keterangan ? `<span style="display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; font-size:12px; color:var(--ink-soft);">${escapeHtml(r.keterangan)}</span>` : `<span style="color:var(--text-dim); font-style:italic; font-size:12px;">-</span>`}
+      </td>
+      <td>
+        <div class="row-actions">
+          <button class="icon-btn" title="Detail" data-detail="${r.id}">&#128065;</button>
+          <button class="icon-btn" title="Edit" data-edit2="${r.id}">&#9998;</button>
+          <button class="icon-btn danger" title="Hapus" data-del="${r.id}">&#128465;</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+
+  bindRecordActionButtons(tbody);
+  renderMobileRecords(list);
+}
+
+function renderPaginationBar(totalCount, totalPages, startIdx, shownCount){
+  const bar = document.getElementById('paginationBar');
+  if(!bar) return;
+  const page = pagination.page;
+  let pageBtns = '';
+  const windowSize = 5;
+  let from = Math.max(1, page - Math.floor(windowSize/2));
+  let to = Math.min(totalPages, from + windowSize - 1);
+  from = Math.max(1, to - windowSize + 1);
+  for(let p=from; p<=to; p++){
+    pageBtns += `<button data-page="${p}" class="${p===page?'current':''}">${p}</button>`;
+  }
+  bar.innerHTML = `
+    <div class="info">Menampilkan ${totalCount ? startIdx+1 : 0}–${startIdx+shownCount} dari ${totalCount} data</div>
+    <div class="pages">
+      <select id="pagSize" title="Baris per halaman">
+        ${[10,25,50,100].map(n=>`<option value="${n}" ${pagination.pageSize===n?'selected':''}>${n} / hal</option>`).join('')}
+      </select>
+      <button data-page="${page-1}" ${page<=1?'disabled':''}>&#8249;</button>
+      ${pageBtns}
+      <button data-page="${page+1}" ${page>=totalPages?'disabled':''}>&#8250;</button>
+    </div>
+  `;
+  bar.querySelectorAll('[data-page]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const p = parseInt(b.dataset.page,10);
+      if(!isNaN(p) && p>=1 && p<=totalPages){ pagination.page = p; renderTable(); }
+    });
+  });
+  const sizeSel = document.getElementById('pagSize');
+  if(sizeSel) sizeSel.addEventListener('change', (e)=>{
+    pagination.pageSize = parseInt(e.target.value,10);
+    pagination.page = 1;
+    renderTable();
+  });
+}
+
+/* =======================================================================
+   FORM (Input Baru / Edit)
+======================================================================= */
+function formTemplate(record){
+  const r = record || {};
+  const isEdit = !!record;
+  return `
+    <div class="topbar">
+      <div class="topbar-left">
+        <button class="btn-mobile-menu" id="btnMobileToggleForm" title="Buka Menu">&#9776;</button>
+        <div>
+          <h1>${isEdit ? 'Edit Pengajuan' : 'Input Pengajuan Baru'}</h1>
+          <div class="sub">Lengkapi seluruh field di bawah ini seperti formulir pengajuan kredit</div>
+        </div>
+      </div>
+    </div>
+    <div class="form-wrap">
+      <form id="mainForm" novalidate>
+        <div class="field-row">
+          <div class="field" data-f="tanggalInput">
+            <label>1. Tanggal Input <span class="hint">(manual — tidak pernah berubah otomatis, hanya berubah kalau Anda ubah sendiri di sini)</span></label>
+            <input type="date" name="tanggalInput" value="${normalizeDateOnly(r.tanggalInput || todayLocalISO())}">
+            <div class="field-error">Tanggal input wajib diisi.</div>
+          </div>
+          <div class="field" data-f="tanggalUpdate">
+            <label>2. Tanggal Update <span class="hint">(otomatis hari ini saat edit — dasar perhitungan SLA, bisa disesuaikan bila perlu)</span></label>
+            <input type="date" name="tanggalUpdate" value="${todayLocalISO()}">
+            <div class="field-error">Tanggal update wajib diisi.</div>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field" data-f="namaDebitur">
+            <label>3. Nama Debitur</label>
+            <input type="text" name="namaDebitur" placeholder="Nama lengkap debitur" value="${escapeHtml(r.namaDebitur||'')}">
+            <div class="field-error">Nama debitur wajib diisi.</div>
+          </div>
+          <div class="field" data-f="namaPasangan">
+            <label>4. Nama Pasangan <span class="hint">(opsional)</span></label>
+            <input type="text" name="namaPasangan" placeholder="Nama pasangan" value="${escapeHtml(r.namaPasangan||'')}">
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field" data-f="noHp">
+            <label>5. No HP <span class="hint">(opsional)</span></label>
+            <input type="text" inputmode="numeric" pattern="[0-9]*" name="noHp" placeholder="Contoh: 081234567890" value="${escapeHtml(r.noHp||'')}">
+            <div class="field-error">No HP hanya boleh berisi angka.</div>
+          </div>
+          <div class="field" data-f="newRo">
+            <label>6. New / RO</label>
+            <select name="newRo">
+              <option value="">Pilih New/RO</option>
+              ${NEWRO_LIST.map(n=>`<option value="${n}" ${r.newRo===n?'selected':''}>${n}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field" data-f="unit">
+            <label>7. Unit</label>
+            <select name="unit">
+              <option value="">Pilih unit</option>
+              ${UNIT_LIST.map(u=>`<option value="${u}" ${r.unit===u?'selected':''}>${u}</option>`).join('')}
+            </select>
+            <div class="field-error">Pilih unit terlebih dahulu.</div>
+          </div>
+          <div class="field" data-f="merek">
+            <label>8. Merek</label>
+            <input type="text" name="merek" placeholder="Contoh: Honda, Toyota" value="${escapeHtml(r.merek||'')}">
+            <div class="field-error">Merek wajib diisi.</div>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field" data-f="tahun">
+            <label>9. Tahun</label>
+            <select name="tahun">
+              <option value="">Pilih tahun</option>
+              ${TAHUN_LIST.map(t=>`<option value="${t}" ${r.tahun===t?'selected':''}>${t}</option>`).join('')}
+            </select>
+            <div class="field-error">Pilih tahun kendaraan.</div>
+          </div>
+          <div class="field" data-f="pinjaman">
+            <label>10. Pinjaman <span class="hint">(Rp)</span></label>
+            <input type="text" inputmode="numeric" class="mono-input" name="pinjaman" placeholder="Contoh: 5.500.000" value="${r.pinjaman ? formatRibuan(r.pinjaman) : ''}">
+            <div class="field-error">Jumlah pinjaman wajib diisi dan lebih dari 0.</div>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field" data-f="cmo">
+            <label>11. CMO</label>
+            <select name="cmo">
+              <option value="">Pilih CMO</option>
+              ${CMO_LIST.map(c=>`<option value="${c}" ${r.cmo===c?'selected':''}>${c}</option>`).join('')}
+            </select>
+            <div class="field-error">Pilih CMO penanggung jawab.</div>
+          </div>
+          <div class="field" data-f="sumberOrder">
+            <label>12. Sumber Order</label>
+            <input type="text" name="sumberOrder" placeholder="Contoh: Dealer, Referensi, Walk-in" value="${escapeHtml(r.sumberOrder||'')}">
+            <div class="field-error">Sumber order wajib diisi.</div>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field" data-f="posisi">
+            <label>13. Posisi</label>
+            <select name="posisi">
+              <option value="">Pilih posisi</option>
+              ${POSISI_LIST.map(p=>`<option value="${p}" ${r.posisi===p?'selected':''}>${p}</option>`).join('')}
+            </select>
+            <div class="field-error">Pilih posisi proses saat ini.</div>
+          </div>
+          <div class="field" data-f="status">
+            <label>14. Status</label>
+            <select name="status">
+              <option value="">Pilih status</option>
+              ${STATUS_LIST.map(s=>`<option value="${s}" ${r.status===s?'selected':''}>${s}</option>`).join('')}
+            </select>
+            <div class="field-error">Pilih status pengajuan.</div>
+            ${['Batal','Reject Slik','Reject Non Slik','Approved'].includes(r.status) ? '<div class="hint" style="margin-top:4px;">🔕 Status ini bersifat final — reminder otomatis berhenti.</div>' : ''}
+          </div>
+        </div>
+
+        <div class="field" data-f="keterangan">
+          <label>15. Keterangan <span class="hint">(opsional — catatan untuk posisi/status saat ini)</span></label>
+          <textarea name="keterangan" rows="3" placeholder="Contoh: Batal karena debitur mengundurkan diri / Reject Slik karena riwayat kredit macet / catatan progres lainnya...">${escapeHtml(r.keterangan||'')}</textarea>
+          <div class="field-error">Keterangan wajib diisi untuk status final/reject/batal.</div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-brass">${isEdit ? 'Simpan Perubahan' : 'Simpan Pengajuan'}</button>
+          <button type="button" class="btn btn-ghost" id="btnCancelForm">Batal</button>
+        </div>
+      </form>
+    </div>
+  `;
+}
+
+function bindFormEvents(){
+  const btnMobile = document.getElementById('btnMobileToggleForm');
+  if(btnMobile) btnMobile.addEventListener('click', openMobileSidebar);
+
+  const form = document.getElementById('mainForm');
+  const pinjamanInput = form.querySelector('[name=pinjaman]');
+  pinjamanInput.addEventListener('input', (e)=>{
+    const raw = parseRibuan(e.target.value);
+    e.target.value = raw ? formatRibuan(raw) : '';
+  });
+  
+  // Realtime clear invalid errors
+  form.querySelectorAll('input, select, textarea').forEach(el=>{
+    el.addEventListener('input', ()=>{
+      const wrap = form.querySelector(`.field[data-f="${el.name}"]`);
+      if(wrap && String(el.value).trim() !== '') wrap.classList.remove('invalid');
+    });
+  });
+
+  document.getElementById('btnCancelForm').addEventListener('click', ()=>{
+    editingId = null;
+    setView('dashboard');
+  });
+  form.addEventListener('submit', onSubmitForm);
+}
+
+function setFieldError(form, name, message){
+  const fieldWrap = form.querySelector(`.field[data-f="${name}"]`);
+  if(!fieldWrap) return;
+  fieldWrap.classList.add('invalid');
+  const err = fieldWrap.querySelector('.field-error');
+  if(err && message) err.textContent = message;
+}
+function clearFieldErrors(form){
+  form.querySelectorAll('.field.invalid').forEach(el=>el.classList.remove('invalid'));
+}
+function normalizeText(s){ return String(s || '').trim().replace(/\s+/g, ' '); }
+function hasDuplicateRecord(data){
+  const key = r => [normalizeText(r.namaDebitur).toLowerCase(), r.unit, normalizeText(r.merek).toLowerCase(), r.tahun, Number(r.pinjaman)||0].join('|');
+  const target = key(data);
+  return RECORDS.some(r => r.id !== editingId && key(r) === target);
+}
+function validateForm(form){
+  clearFieldErrors(form);
+  const requiredFields = ['tanggalInput','tanggalUpdate','namaDebitur','unit','merek','tahun','pinjaman','cmo','sumberOrder','posisi','status'];
+  const messages = {
+    tanggalInput:'Tanggal input wajib diisi.', tanggalUpdate:'Tanggal update wajib diisi.', namaDebitur:'Nama debitur wajib diisi.', unit:'Pilih unit terlebih dahulu.',
+    merek:'Merek wajib diisi.', tahun:'Pilih tahun kendaraan.', pinjaman:'Jumlah pinjaman wajib diisi dan lebih dari 0.',
+    cmo:'Pilih CMO penanggung jawab.', sumberOrder:'Sumber order wajib diisi.', posisi:'Pilih posisi proses saat ini.', status:'Pilih status pengajuan.'
+  };
+  let valid = true;
+  requiredFields.forEach(name=>{
+    const el = form.querySelector(`[name=${name}]`);
+    let ok = true;
+    if(name === 'pinjaman') ok = parseRibuan(el.value) > 0;
+    else ok = !!String(el.value).trim();
+    if(!ok){ setFieldError(form, name, messages[name]); valid = false; }
+  });
+
+  const noHpEl = form.querySelector('[name=noHp]');
+  if(noHpEl && noHpEl.value.trim() && !/^\d+$/.test(noHpEl.value.trim())){
+    setFieldError(form, 'noHp', 'No HP hanya boleh berisi angka.');
+    valid = false;
+  }
+
+  const tanggalInput = form.querySelector('[name=tanggalInput]').value;
+  if(tanggalInput){    const today = todayLocalISO();
+    if(tanggalInput > today){
+      setFieldError(form, 'tanggalInput', 'Tanggal input tidak boleh melebihi hari ini.');
+      valid = false;
+    }
+  }
+
+  const tanggalUpdate = form.querySelector('[name=tanggalUpdate]').value;
+  if(tanggalUpdate){
+    const today = todayLocalISO();
+    if(tanggalUpdate > today){
+      setFieldError(form, 'tanggalUpdate', 'Tanggal update tidak boleh melebihi hari ini.');
+      valid = false;
+    } else if(tanggalInput && tanggalUpdate < tanggalInput){
+      setFieldError(form, 'tanggalUpdate', 'Tanggal update tidak boleh sebelum tanggal input.');
+      valid = false;
+    }
+  }
+
+  const tahun = parseInt(form.querySelector('[name=tahun]').value, 10);
+  const currentYear = new Date().getFullYear();
+  if(tahun && (tahun < MIN_TAHUN_KENDARAAN || tahun > currentYear)){
+    setFieldError(form, 'tahun', `Tahun kendaraan harus antara ${MIN_TAHUN_KENDARAAN} dan ${currentYear}.`);
+    valid = false;
+  }
+
+  const pinjaman = parseRibuan(form.querySelector('[name=pinjaman]').value);
+  if(pinjaman > 10000000000){
+    setFieldError(form, 'pinjaman', 'Nilai pinjaman terlalu besar. Periksa kembali nominalnya.');
+    valid = false;
+  }
+
+  const status = form.querySelector('[name=status]').value;
+  const ket = normalizeText(form.querySelector('[name=keterangan]').value);
+  if(FINAL_STATUS_LIST.includes(status) && ket.length < 8){
+    setFieldError(form, 'keterangan', `Keterangan wajib diisi minimal 8 karakter untuk status ${status}.`);
+    valid = false;
+  }
+
+  const snapshot = {
+    namaDebitur: normalizeText(form.querySelector('[name=namaDebitur]').value),
+    unit: form.querySelector('[name=unit]').value,
+    merek: normalizeText(form.querySelector('[name=merek]').value),
+    tahun: form.querySelector('[name=tahun]').value,
+    pinjaman
+  };
+  if(snapshot.namaDebitur && snapshot.unit && snapshot.merek && snapshot.tahun && snapshot.pinjaman && hasDuplicateRecord(snapshot)){
+    setFieldError(form, 'namaDebitur', 'Data serupa sudah ada. Cek kembali agar tidak dobel input.');
+    valid = false;
+  }
+
+  return valid;
+}
+
+async function onSubmitForm(e){
+  e.preventDefault();
+  const form = e.target;
+  if(!validateForm(form)){
+    showToast('Mohon periksa kembali field yang bertanda merah.');
+    return;
+  }
+  const submitBtn = form.querySelector('button[type=submit]');
+  const originalLabel = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Menyimpan...';
+
+  const fd = new FormData(form);
+  const data = {
+    tanggalInput: normalizeDateOnly(fd.get('tanggalInput'), todayLocalISO()),
+    tanggalUpdate: normalizeDateOnly(fd.get('tanggalUpdate'), todayLocalISO()),
+    namaDebitur: normalizeText(fd.get('namaDebitur')),
+    namaPasangan: normalizeText(fd.get('namaPasangan')),
+    noHp: String(fd.get('noHp')||'').replace(/[^\d]/g,''),
+    newRo: fd.get('newRo') || '',
+    unit: fd.get('unit'),
+    merek: normalizeText(fd.get('merek')),
+    tahun: fd.get('tahun'),
+    pinjaman: parseRibuan(fd.get('pinjaman')),
+    cmo: fd.get('cmo'),
+    sumberOrder: normalizeText(fd.get('sumberOrder')),
+    posisi: fd.get('posisi'),
+    status: fd.get('status'),
+    keterangan: normalizeText(fd.get('keterangan'))
+  };
+
+  try{
+    if(editingId){
+      const r = RECORDS.find(x=>x.id===editingId);
+      if(!r) throw new Error('Data yang akan diedit tidak ditemukan.');
+      // Tanggal Input & Tanggal Update sekarang bersifat fleksibel dan boleh diedit oleh user.
+      const posisiChanged = r.posisi !== data.posisi;
+      const statusChanged = r.status !== data.status;
+      const keteranganChanged = (r.keterangan||'') !== (data.keterangan||'');
+      const tanggalInputChanged = r.tanggalInput !== data.tanggalInput;
+      const tanggalUpdateChanged = r.tanggalUpdate !== data.tanggalUpdate;
+      const prevElapsedHours = workingHoursSince(r.stageEnteredAt);
+      const updated = { ...r, ...data, updatedAt: nowISO() };
+      // ALUR KERJA SLA: setiap kali terjadi edit/update (apa pun yang diubah — bukan cuma posisi),
+      // durasi SLA kembali ke 0 dan mulai berjalan lagi mengikuti ketentuan durasi posisi terbaru.
+      updated.stageEnteredAt = nowISO();
+      updated.snoozeUntil = null;
+      updated.history = [...(r.history||[])];
+      if(posisiChanged || statusChanged){
+        let note = posisiChanged ? 'Posisi diperbarui' : 'Status diperbarui';
+        if(data.keterangan) note += `: ${data.keterangan}`;
+        updated.history.push({ timestamp: nowISO(), posisi:updated.posisi, status:updated.status, note });
+        if(statusChanged && REMINDER_STOP_STATUSES.includes(data.status)){
+          updated.history.push({ timestamp: nowISO(), posisi:updated.posisi, status:updated.status, note: `Status final "${data.status}" — pengingat/reminder otomatis dihentikan.` });
+        }
+      } else if(keteranganChanged && data.keterangan){
+        updated.history.push({ timestamp: nowISO(), posisi:updated.posisi, status:updated.status, note: `Keterangan diperbarui: ${data.keterangan}` });
+      }
+      if(tanggalInputChanged){
+        updated.history.push({ timestamp: nowISO(), posisi:updated.posisi, status:updated.status, note: `Tanggal input diubah dari ${formatTanggalDDMMYY(r.tanggalInput)} menjadi ${formatTanggalDDMMYY(data.tanggalInput)}` });
+      }
+      if(tanggalUpdateChanged){
+        updated.history.push({ timestamp: nowISO(), posisi:updated.posisi, status:updated.status, note: `Tanggal update diset ke ${formatTanggalDDMMYY(data.tanggalUpdate)}` });
+      }
+      updated.history.push({ timestamp: nowISO(), posisi:updated.posisi, status:updated.status, note: `SLA direset ke 0 (sebelumnya berjalan ${formatWorkDurasi(prevElapsedHours)}), mulai berjalan lagi sesuai ketentuan durasi posisi "${updated.posisi}".` });
+      Object.assign(r, updated);
+      saveToLocalStorage();
+      const synced = await syncUpdateChecked(updated);
+      showToast(synced
+        ? `Data ${r.namaDebitur} berhasil diperbarui, SLA direset dan tersinkron.`
+        : `Data ${r.namaDebitur} berhasil diperbarui lokal, SLA direset. Sync server menunggu koneksi.`);
+      if(posisiChanged || statusChanged){
+        pushNotification(synced?'success':'sync', `${r.namaDebitur}: diperbarui ke posisi "${r.posisi}" / status "${r.status}"${synced?'':' (menunggu sync)'}.`, { recordId: r.id });
+      }
+    } else {
+      const ts = nowISO();
+      const r = {
+        id: uid(),
+        ...data,
+        createdAt: ts,
+        updatedAt: ts,
+        stageEnteredAt: ts,
+        snoozeUntil: null,
+        _clientOnly: true, // baru dibuat lokal, belum terkonfirmasi tersimpan di server
+        history: [{ timestamp: ts, posisi:data.posisi, status:data.status, note: data.keterangan ? `Pengajuan dibuat: ${data.keterangan}` : 'Pengajuan dibuat' }]
+      };
+      RECORDS.push(r);
+      saveToLocalStorage();
+      const synced = await syncCreateChecked(r);
+      showToast(synced
+        ? `Pengajuan ${r.namaDebitur} berhasil disimpan dan tersinkron.`
+        : `Pengajuan ${r.namaDebitur} tersimpan lokal. Sync server menunggu koneksi.`);
+      pushNotification(synced?'success':'sync', `Pengajuan baru ditambahkan: ${r.namaDebitur} (${r.unit} ${r.merek})${synced?'':' — menunggu sync'}.`, { recordId: r.id });
+    }
+    editingId = null;
+    setView('dashboard');
+  }catch(err){
+    console.error(err);
+    showToast('Gagal menyimpan data: ' + err.message);
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalLabel;
+  }
+}
+
+/* =======================================================================
+   MODALS: Detail / Edit / Delete
+======================================================================= */
+function openModal(html){
+  document.getElementById('modalBox').innerHTML = html;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModal(){
+  document.getElementById('modalOverlay').classList.remove('open');
+  document.getElementById('modalBox').innerHTML = '';
+}
+document.getElementById('modalOverlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modalOverlay') closeModal();
+});
+window.addEventListener('keydown', (e)=>{
+  if(e.key === 'Escape') closeModal();
+});
+
+function openDetailModal(id){
+  const r = RECORDS.find(x=>x.id===id);
+  if(!r) return;
+  const historyHtml = (r.history||[]).slice().reverse().map(h=>`
+    <div class="history-item">
+      <div class="history-time">${formatDateTime(h.timestamp)}</div>
+      <div>${escapeHtml(h.note)} &mdash; <strong>${escapeHtml(h.posisi)}</strong> / ${escapeHtml(h.status)}</div>
+    </div>
+  `).join('');
+  openModal(`
+    <div class="modal-head">
+      <h3>Detail Pengajuan</h3>
+      <button class="modal-close" id="mClose">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="detail-grid">
+        <div class="detail-item"><div class="k">Tanggal Input</div><div class="v">${formatTanggalDDMMYY(r.tanggalInput)}</div></div>
+        <div class="detail-item"><div class="k">Tanggal Update</div><div class="v">${formatTanggalDDMMYY(r.tanggalUpdate)}</div></div>
+        <div class="detail-item"><div class="k">Waktu Update Sistem</div><div class="v">${formatDateTime(r.updatedAt || r.createdAt)}</div></div>
+        <div class="detail-item"><div class="k">Status Reminder</div><div class="v">${REMINDER_STOP_STATUSES.includes(r.status) ? '<span style="color:var(--text-dim);">🔕 Berhenti (status final)</span>' : '<span style="color:var(--c-proses);">🔔 Aktif</span>'}</div></div>
+        <div class="detail-item"><div class="k">Nama Debitur</div><div class="v">${escapeHtml(r.namaDebitur)}</div></div>
+        <div class="detail-item"><div class="k">Nama Pasangan</div><div class="v">${escapeHtml(r.namaPasangan) || '-'}</div></div>
+        <div class="detail-item"><div class="k">No HP</div><div class="v">${escapeHtml(r.noHp) || '-'}</div></div>
+        <div class="detail-item"><div class="k">New / RO</div><div class="v">${escapeHtml(r.newRo) || '-'}</div></div>
+        <div class="detail-item"><div class="k">Unit</div><div class="v">${escapeHtml(r.unit)}</div></div>
+        <div class="detail-item"><div class="k">Merek</div><div class="v">${escapeHtml(r.merek)}</div></div>
+        <div class="detail-item"><div class="k">Tahun</div><div class="v">${escapeHtml(r.tahun)}</div></div>
+        <div class="detail-item"><div class="k">Pinjaman</div><div class="v money">${formatRupiah(r.pinjaman)}</div></div>
+        <div class="detail-item"><div class="k">CMO</div><div class="v">${escapeHtml(r.cmo)}</div></div>
+        <div class="detail-item"><div class="k">Sumber Order</div><div class="v">${escapeHtml(r.sumberOrder)}</div></div>
+        <div class="detail-item"><div class="k">Posisi</div><div class="v"><span class="stamp" style="color:var(${POSISI_COLOR[r.posisi]||'--ink'})">${escapeHtml(r.posisi)}</span></div></div>
+        <div class="detail-item"><div class="k">Status</div><div class="v"><span class="stamp" style="color:var(${STATUS_COLOR[r.status]||'--ink'})">${escapeHtml(r.status)}</span></div></div>
+        <div class="detail-item"><div class="k">Durasi SLA Berjalan <span style="font-weight:400; color:var(--text-dim);">(sejak update terakhir)</span></div><div class="v">${formatWorkDurasi(workingHoursSince(r.stageEnteredAt))}</div></div>
+        <div class="detail-item full"><div class="k">Keterangan</div><div class="v">${r.keterangan ? escapeHtml(r.keterangan) : '<span style="color:var(--text-dim); font-style:italic;">Belum ada catatan.</span>'}</div></div>
+      </div>
+      <div class="history-list">
+        <h4>Riwayat Perubahan</h4>
+        ${historyHtml || '<div style="color:var(--text-dim); font-size:13px;">Belum ada riwayat.</div>'}
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="mCloseBtn">Tutup</button>
+      <button class="btn btn-brass" id="mEditBtn">Edit Data</button>
+    </div>
+  `);
+  document.getElementById('mClose').addEventListener('click', closeModal);
+  document.getElementById('mCloseBtn').addEventListener('click', closeModal);
+  document.getElementById('mEditBtn').addEventListener('click', ()=>{ closeModal(); openEditModal(id); });
+}
+
+function openEditModal(id){
+  editingId = id;
+  const r = RECORDS.find(x=>x.id===id);
+  currentView = 'form';
+  document.querySelectorAll('.nav-btn').forEach(b=> b.classList.toggle('active', b.dataset.view==='form'));
+  const main = document.getElementById('main');
+  main.innerHTML = formTemplate(r);
+  bindFormEvents();
+}
+
+function openDeleteModal(id){
+  const r = RECORDS.find(x=>x.id===id);
+  if(!r) return;
+  openModal(`
+    <div class="modal-head">
+      <h3>Hapus Pengajuan?</h3>
+      <button class="modal-close" id="mClose">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p>Anda akan menghapus data <strong>${escapeHtml(r.namaDebitur)}</strong> (${escapeHtml(r.unit)} ${escapeHtml(r.merek)} ${escapeHtml(r.tahun)}). Tindakan ini tidak dapat dibatalkan.</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="mCancel">Batal</button>
+      <button class="btn btn-danger" id="mConfirmDel">Ya, Hapus</button>
+    </div>
+  `);
+  document.getElementById('mClose').addEventListener('click', closeModal);
+  document.getElementById('mCancel').addEventListener('click', closeModal);
+  document.getElementById('mConfirmDel').addEventListener('click', async ()=>{
+    const btn = document.getElementById('mConfirmDel');
+    const originalLabel = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Menghapus...';
+    try{
+      const synced = await syncDeleteChecked(id);
+      markTombstone(id);
+      RECORDS = RECORDS.filter(x=>x.id!==id);
+      Array.from(notifiedKeys).forEach(key=>{ if(key.startsWith(id + '::')) notifiedKeys.delete(key); });
+      delete aiMessages[id];
+      saveToLocalStorage();
+      closeModal();
+      showToast(synced
+        ? `Data ${r.namaDebitur} telah dihapus dan tersinkron.`
+        : `Data ${r.namaDebitur} dihapus lokal. Penghapusan server menunggu sync.`);
+      pushNotification(synced?'info':'sync', `Data ${r.namaDebitur} (${r.unit} ${r.merek}) telah dihapus${synced?' dari sistem':' lokal dan menunggu sync server'}.`);
+      renderCards();
+      renderTable();
+      refreshReminders();
+    }catch(err){
+      console.error(err);
+      showToast('Gagal menghapus data: ' + err.message);
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+    }
+  });
+}
+
+/* =======================================================================
+   SETTINGS MODAL
+======================================================================= */
+function openSettingsModal(){
+  openModal(`
+    <div class="modal-head">
+      <h3>Pengaturan Aplikasi</h3>
+      <button class="modal-close" id="mClose">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="settings-row">
+        <div>
+          <div class="lbl">Notifikasi Suara</div>
+          <div class="desc">Mainkan bunyi singkat setiap ada notifikasi baru (reminder, sinkronisasi, dsb).</div>
+        </div>
+        <label class="switch"><input type="checkbox" id="setSound" ${APP_SETTINGS.soundNotif?'checked':''}><span class="slider"></span></label>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="lbl">Notifikasi Browser</div>
+          <div class="desc">Tampilkan notifikasi sistem operasi walau tab tidak aktif.</div>
+        </div>
+        <label class="switch"><input type="checkbox" id="setBrowserNotif" ${APP_SETTINGS.browserNotif?'checked':''}><span class="slider"></span></label>
+      </div>
+      <div class="settings-row" style="display:block;">
+        <div class="lbl">Interval Pengecekan Reminder</div>
+        <div class="desc" style="margin-bottom:8px;">Seberapa sering aplikasi memeriksa pengajuan yang tertunda secara otomatis di latar belakang.</div>
+        <select class="settings-select" id="setInterval">
+          ${[2,5,10,15,30].map(m=>`<option value="${m}" ${APP_SETTINGS.reminderIntervalMin===m?'selected':''}>${m} menit</option>`).join('')}
+        </select>
+      </div>
+      <div class="settings-row" style="display:block;">
+        <div class="lbl">Jam Kerja Reminder</div>
+        <div class="desc" style="margin-bottom:8px;">SLA dihitung hanya pada ${WORKDAY_LABEL}. Hari Minggu otomatis libur. Masukkan tanggal merah tambahan di bawah ini, format YYYY-MM-DD, satu tanggal per baris atau dipisahkan koma.</div>
+        <textarea class="settings-input" id="setHolidayDates" rows="4" placeholder="2026-01-01&#10;2026-03-20&#10;2026-08-17">${escapeHtml(APP_SETTINGS.holidayDates||'')}</textarea>
+      </div>
+      <div class="settings-row" style="display:block;">
+        <div class="lbl">WhatsApp Reminder Otomatis</div>
+        <div class="desc" style="margin-bottom:8px;">Opsional. Jika aktif, reminder overdue baru akan dikirim ke nomor WhatsApp melalui webhook Google Apps Script/WhatsApp Cloud API.</div>
+        <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; margin-bottom:8px;"><input type="checkbox" id="setWhatsappEnabled" ${APP_SETTINGS.whatsappEnabled?'checked':''}> Aktifkan kirim WhatsApp untuk reminder overdue</label>
+        <input type="text" class="settings-input" id="setWhatsappWebhookUrl" placeholder="URL Web App Google Apps Script" value="${escapeHtml(APP_SETTINGS.whatsappWebhookUrl||'')}" style="margin-bottom:8px;">
+        <input type="text" class="settings-input" id="setWhatsappRecipient" placeholder="Nomor tujuan, contoh: 62812xxxx" value="${escapeHtml(APP_SETTINGS.whatsappRecipient||'')}" style="margin-bottom:8px;">
+        <input type="password" class="settings-input" id="setWhatsappClientSecret" placeholder="Client secret sesuai Apps Script" value="${escapeHtml(APP_SETTINGS.whatsappClientSecret||'')}">
+      </div>
+      <div class="settings-row" style="display:block;">
+        <div class="lbl">Asisten AI &mdash; Mode Lanjutan (Opsional)</div>
+        <div class="desc" style="margin-bottom:8px;">Secara default, Asisten AI menjawab menggunakan analisis data lokal (tanpa biaya, tanpa koneksi eksternal). Isi API key Anthropic Anda sendiri di bawah ini jika ingin jawaban yang lebih natural dari model Claude. Key hanya disimpan di penyimpanan lokal browser Anda dan dikirim langsung ke api.anthropic.com — tidak melalui server manapun.</div>
+        <input type="password" class="settings-input" id="setApiKey" placeholder="sk-ant-... (opsional)" value="${escapeHtml(APP_SETTINGS.aiApiKey||'')}" style="margin-bottom:8px;">
+        <select class="settings-select" id="setModel">
+          ${['claude-sonnet-5','claude-opus-4-8','claude-haiku-4-5-20251001'].map(m=>`<option value="${m}" ${APP_SETTINGS.aiModel===m?'selected':''}>${m}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="mCancelSettings">Batal</button>
+      <button class="btn btn-brass" id="mSaveSettings">Simpan Pengaturan</button>
+    </div>
+  `);
+  document.getElementById('mClose').addEventListener('click', closeModal);
+  document.getElementById('mCancelSettings').addEventListener('click', closeModal);
+  document.getElementById('mSaveSettings').addEventListener('click', async ()=>{
+    const wantBrowserNotif = document.getElementById('setBrowserNotif').checked;
+    if(wantBrowserNotif && 'Notification' in window && Notification.permission !== 'granted'){
+      const perm = await Notification.requestPermission();
+      APP_SETTINGS.browserNotif = perm === 'granted';
+      if(perm !== 'granted') showToast('Izin notifikasi browser ditolak oleh sistem.');
+    } else {
+      APP_SETTINGS.browserNotif = wantBrowserNotif;
+    }
+    APP_SETTINGS.soundNotif = document.getElementById('setSound').checked;
+    APP_SETTINGS.reminderIntervalMin = parseInt(document.getElementById('setInterval').value,10);
+    APP_SETTINGS.holidayDates = document.getElementById('setHolidayDates').value.trim();
+    APP_SETTINGS.whatsappEnabled = document.getElementById('setWhatsappEnabled').checked;
+    APP_SETTINGS.whatsappWebhookUrl = document.getElementById('setWhatsappWebhookUrl').value.trim();
+    APP_SETTINGS.whatsappRecipient = cleanPhoneNumber(document.getElementById('setWhatsappRecipient').value);
+    APP_SETTINGS.whatsappClientSecret = document.getElementById('setWhatsappClientSecret').value.trim();
+    APP_SETTINGS.aiApiKey = document.getElementById('setApiKey').value.trim();
+    APP_SETTINGS.aiModel = document.getElementById('setModel').value;
+    saveSettings();
+    setupReminderTimer();
+    showToast('Pengaturan berhasil disimpan.');
+    closeModal();
+  });
+}
+
+/* =======================================================================
+   BACKUP & RESTORE JSON DATABASE
+======================================================================= */
+function backupDatabaseJson(){
+  if(RECORDS.length === 0){ showToast('Tidak ada data untuk dibackup.'); return; }
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(RECORDS, null, 2));
+  const dlAnchorElem = document.createElement('a');
+  dlAnchorElem.setAttribute("href", dataStr);
+  dlAnchorElem.setAttribute("download", `Backup-DB-TrackingKredit-${todayLocalISO()}.json`);
+  dlAnchorElem.click();
+  showToast('File backup JSON berhasil diunduh!');
+  pushNotification('success', `Backup database (${RECORDS.length} data) berhasil diunduh.`);
+}
+
+function restoreDatabaseJson(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async (event) => {
+    try{
+      const imported = JSON.parse(event.target.result);
+      if(!Array.isArray(imported)) throw new Error('Format file tidak valid (harus array JSON).');
+      const cleanList = imported.map(coerceRecord);
+      
+      // Merge dengan data eksisting
+      const existedIds = new Set(RECORDS.map(r => r.id));
+      const map = new Map();
+      RECORDS.forEach(r => map.set(r.id, r));
+      cleanList.forEach(r => map.set(r.id, r));
+      
+      RECORDS = Array.from(map.values());
+      saveToLocalStorage();
+      showToast(`Berhasil memulihkan ${cleanList.length} data pengajuan!`);
+      pushNotification('success', `${cleanList.length} data berhasil dipulihkan dari file backup.`);
+      renderCards();
+      renderTable();
+      refreshReminders();
+      
+      // Coba kirim ke server jika online. Jika gagal, masuk antrean sync v2.
+      for(const r of cleanList){
+        if(existedIds.has(r.id)){ await syncUpdateChecked(r); }
+        else { r._clientOnly = true; await syncCreateChecked(r); }
+      }
+    }catch(err){
+      showToast('Gagal memulihkan file: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function loadDemoData(){
+  const demoRecord = coerceRecord({
+    id: uid(),
+    tanggalInput: todayLocalISO(),
+    tanggalUpdate: todayLocalISO(),
+    namaDebitur: 'Budi Santoso (Demo)',
+    namaPasangan: 'Siti Aminah',
+    noHp: '081234567890',
+    newRo: 'NEW',
+    unit: 'Motor',
+    merek: 'Honda Vario 160',
+    tahun: '2023',
+    pinjaman: 24500000,
+    cmo: 'Rahma',
+    sumberOrder: 'Dealer Honda',
+    posisi: 'Survey',
+    status: 'Proses',
+    keterangan: 'Survey dijadwalkan ulang menunggu konfirmasi alamat debitur.',
+    stageEnteredAt: new Date(Date.now() - 28 * 3600 * 1000).toISOString()
+  });
+  demoRecord._clientOnly = true;
+  RECORDS.push(demoRecord);
+  saveToLocalStorage();
+  syncCreateChecked(demoRecord);
+  showToast('Data contoh berhasil ditambahkan!');
+  renderCards();
+  renderTable();
+  refreshReminders();
+}
+
+/* =======================================================================
+   EXPORT TO EXCEL
+======================================================================= */
+function exportExcel(){
+  if(typeof XLSX === 'undefined' || !XLSX.utils || !XLSX.writeFile){
+    showToast('Export Excel belum siap karena library XLSX gagal dimuat. Coba online atau gunakan Backup JSON.');
+    pushNotification('error', 'Export Excel gagal: library XLSX tidak tersedia.');
+    return;
+  }
+  const list = getFilteredSortedRecords();
+  if(list.length === 0){ showToast('Tidak ada data untuk diekspor.'); return; }
+  try{
+    const rows = list.map(r=>({
+      'Tanggal Input': formatTanggalDDMMYY(r.tanggalInput),
+      'Tanggal Update': formatTanggalDDMMYY(r.tanggalUpdate),
+      'Waktu Update Sistem': formatDateTime(r.updatedAt || r.createdAt),
+      'Nama Debitur': r.namaDebitur,
+      'Nama Pasangan': r.namaPasangan,
+      'No HP': r.noHp || '',
+      'New/RO': r.newRo || '',
+      'Unit': r.unit,
+      'Merek': r.merek,
+      'Tahun': r.tahun,
+      'Pinjaman (Rp)': Number(r.pinjaman) || 0,
+      'CMO': r.cmo,
+      'Sumber Order': r.sumberOrder,
+      'Posisi': r.posisi,
+      'Status': r.status,
+      'Keterangan': r.keterangan || '',
+      'Durasi SLA Berjalan (jam kerja, sejak update terakhir)': Math.round(workingHoursSince(r.stageEnteredAt)*10)/10,
+      'Status Reminder': REMINDER_STOP_STATUSES.includes(r.status) ? 'Berhenti (final)' : 'Aktif'
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [
+      {wch:14},{wch:14},{wch:20},{wch:22},{wch:16},{wch:10},{wch:22},{wch:8},{wch:16},{wch:8},{wch:16},{wch:10},{wch:16},{wch:20},{wch:16},{wch:34},{wch:18},{wch:16}
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Data Pengajuan');
+    const filename = `Data-Pengajuan-Kredit-${todayLocalISO()}.xlsx`;
+    XLSX.writeFile(wb, filename);
+    showToast('File Excel berhasil diunduh.');
+  }catch(err){
+    console.error('Export Excel gagal:', err);
+    showToast('Export Excel gagal: ' + (err.message || 'terjadi kesalahan tidak diketahui.'));
+  }
+}
+
+/* =======================================================================
+   NAV BINDING & MOBILE SIDEBAR
+======================================================================= */
+function openMobileSidebar(){
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('mobileBackdrop').classList.add('open');
+}
+function closeMobileSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('mobileBackdrop').classList.remove('open');
+}
+document.getElementById('mobileBackdrop').addEventListener('click', closeMobileSidebar);
+
+document.querySelectorAll('.nav-btn').forEach(btn=>{
+  if(!btn.dataset.view) return; // e.g. settings button, handled separately
+  btn.addEventListener('click', ()=>{
+    if(btn.dataset.view === 'form') editingId = null;
+    setView(btn.dataset.view);
+  });
+});
+
+/* =======================================================================
+   SIDEBAR RESIZE / COLLAPSE
+======================================================================= */
+const SIDEBAR_KEY = 'sidebar_width_v1';
+const SIDEBAR_MIN = 64;
+const SIDEBAR_MINI_MAX = 90;
+const SIDEBAR_MAX = 340;
+const SIDEBAR_DEFAULT = 220;
+let sidebarWidth = SIDEBAR_DEFAULT;
+
+function applySidebarWidth(width){
+  sidebarWidth = Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, width));
+  const sidebar = document.getElementById('sidebar');
+  sidebar.style.width = sidebarWidth + 'px';
+  sidebar.classList.toggle('mini', sidebarWidth <= SIDEBAR_MINI_MAX);
+}
+
+function saveSidebarWidth(width){
+  try{ localStorage.setItem(SIDEBAR_KEY, JSON.stringify(width)); }catch(e){}
+}
+
+function loadSidebarWidth(){
+  try{
+    const val = localStorage.getItem(SIDEBAR_KEY);
+    if(val) return JSON.parse(val);
+  }catch(e){}
+  return SIDEBAR_DEFAULT;
+}
+
+function initSidebarResizer(){
+  const resizer = document.getElementById('sidebarResizer');
+  const sidebar = document.getElementById('sidebar');
+  let dragging = false;
+
+  const onMove = (clientX)=>{
+    if(!dragging) return;
+    applySidebarWidth(clientX);
+  };
+  const startDrag = ()=>{
+    dragging = true;
+    sidebar.classList.add('resizing');
+    resizer.classList.add('active');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+  const endDrag = ()=>{
+    if(!dragging) return;
+    dragging = false;
+    sidebar.classList.remove('resizing');
+    resizer.classList.remove('active');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    saveSidebarWidth(sidebarWidth);
+  };
+
+  resizer.addEventListener('mousedown', (e)=>{ e.preventDefault(); startDrag(); });
+  window.addEventListener('mousemove', (e)=> onMove(e.clientX));
+  window.addEventListener('mouseup', endDrag);
+
+  resizer.addEventListener('touchstart', (e)=>{ startDrag(); }, {passive:true});
+  window.addEventListener('touchmove', (e)=>{ if(dragging && e.touches[0]) onMove(e.touches[0].clientX); }, {passive:true});
+  window.addEventListener('touchend', endDrag);
+
+  resizer.addEventListener('dblclick', ()=>{
+    const target = sidebarWidth <= SIDEBAR_MINI_MAX ? SIDEBAR_DEFAULT : SIDEBAR_MIN;
+    applySidebarWidth(target);
+    saveSidebarWidth(sidebarWidth);
+  });
+}
+
+/* =======================================================================
+   INITIALIZATION (DIPERBAIKI)
+======================================================================= */
+function setupReminderTimer(){
+  if(reminderTimer) clearInterval(reminderTimer);
+  const ms = Math.max(1, APP_SETTINGS.reminderIntervalMin) * 60 * 1000;
+  reminderTimer = setInterval(async ()=>{
+    if(!isDataLoading){
+      refreshReminders();
+      if(STORAGE_MODE === 'online' && pendingSyncCount() > 0) await processSyncQueue();
+    }
+  }, ms);
+}
+
+function initAIChatWidget(){
+  document.getElementById('aiFabBtn').addEventListener('click', ()=>{
+    const panel = document.getElementById('aiChatPanel');
+    if(panel.classList.contains('open')) closeAIChat(); else openAIChat();
+  });
+  document.getElementById('aiChatCloseBtn').addEventListener('click', closeAIChat);
+  document.getElementById('aiChatSendBtn').addEventListener('click', sendAIChatMessage);
+  document.getElementById('aiChatInput').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){ e.preventDefault(); sendAIChatMessage(); }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', async ()=>{
+  loadSettings();
+  loadNotifs();
+  loadChatHistory();
+  loadSyncQueue();
+  loadTombstones();
+  renderNotifBadge();
+  applySidebarWidth(loadSidebarWidth());
+  initSidebarResizer();
+  initAIChatWidget();
+  const btnSettings = document.getElementById('btnOpenSettings');
+  if(btnSettings) btnSettings.addEventListener('click', openSettingsModal);
+  setupReminderTimer();
+  await initDataEngine();
+});
+</script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a17d6e9b7887d25b',t:'MTc4MzQ5NjMzNA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
